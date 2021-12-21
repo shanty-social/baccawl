@@ -1,0 +1,85 @@
+version: "3"
+
+volumes:
+  secrets:
+
+services:
+ 
+  server:
+    image: server
+    build:
+      dockerfile: ./docker/server/Dockerfile
+      context: ./
+    volumes:
+      - ./proxy:/app:ro
+    ports:
+      - 8080:8080
+    networks:
+      default:
+        aliases:
+          - d4e9f45f-43bc-4bc0-b813-5f0825228c65.server
+
+  client:
+    image: client
+    build:
+      dockerfile: ./docker/client/Dockerfile
+      context: ./
+    volumes:
+      - ./proxy:/app:ro
+    depends_on:
+      - server
+    environment:
+      - CLIENT_ID=d4e9f45f-43bc-4bc0-b813-5f0825228c65
+      - SERVER_URL=http://server:8080
+
+  db:
+    image: arm64v8/postgres:14-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=console
+
+  console:
+    image: console
+    build:
+      dockerfile: ./docker/console/Dockerfile
+      context: ./
+    volumes:
+      - ./console:/app:ro
+      - ./docker/console/entrypoint.sh:/entrypoint.sh:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - secrets:/var/run/secrets
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+    environment:
+      - DJANGO_DEBUG=true
+      - DJANGO_HOST=0.0.0.0
+      - DJANGO_PORT=8000
+      - DJANGO_DB_HOST=db
+      - DJANGO_DB_USER=user
+      - DJANGO_DB_NAME=console
+      - DJANGO_DB_PASSWORD=password
+
+  ui:
+    image: ui
+    build:
+      dockerfile: ./docker/ui/Dockerfile
+      context: ./
+    volumes:
+      - ./console/frontend:/app
+    ports:
+      - 8001:8001
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8001
+
+  migrate:
+    image: console
+    entrypoint: /wait-for db:5432 -- python3 manage.py migrate --noinput
+    volumes:
+      - ./console/:/app:ro
+      - secrets:/var/run/secrets
+    depends_on:
+      - db

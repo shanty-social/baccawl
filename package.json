@@ -1,0 +1,20 @@
+{
+  "name": "weproxy-server",
+  "version": "0.98.0",
+  "description": "Websocket server, HTTP proxy.",
+  "main": "index.js",
+  "scripts": {
+    "server": "node server.js",
+    "client": "node client.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Ben Timby <btimby@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "debug": "^4.3.3",
+    "reconnecting-websocket": "^4.4.0",
+    "uuid": "^8.3.2",
+    "wrtc": "^0.4.7",
+    "ws": "^8.3.0"
+  }
+}

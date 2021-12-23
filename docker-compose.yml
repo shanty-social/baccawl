@@ -8,7 +8,8 @@ services:
       dockerfile: ./docker/server/Dockerfile
       context: ./
     volumes:
-      - ./proxy:/app:ro
+      - ./proxy/server.js:/app/server.js:ro
+      - ./proxy/lib:/app/lib:ro
     environment:
       - DEBUG=baccawl*
       - SERVER_HOST=0.0.0.0
@@ -21,7 +22,8 @@ services:
       dockerfile: ./docker/client/Dockerfile
       context: ./
     volumes:
-      - ./proxy:/app:ro
+      - ./proxy/client.js:/app/client.js:ro
+      - ./proxy/lib:/app/lib:ro
     depends_on:
       - server
     environment:

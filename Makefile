@@ -13,7 +13,7 @@ build:
 
 .PHONY: run
 run:
-	${DOCKER_COMPOSE} up
+	${DOCKER_COMPOSE} up --scale server=3
 
 
 .PHONY: test

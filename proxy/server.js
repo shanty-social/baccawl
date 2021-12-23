@@ -11,7 +11,24 @@ const wssFrontends = new WebSocketServer({ noServer: true });
 const BACKENDS = {};
 const SERVER_HOST = process.env.SERVER_HOST || 'localhost';
 const SERVER_PORT = parseInt(process.env.SERVER_PORT || '8080');
-const SERVER_URL = new URL(process.env['SERVER_URL'], 'http://localhost');
+const SERVER_URL = new URL(process.env['SERVER_URL'], 'ws://localhost');
+
+function parseHost(req) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const parts = url.hostname.split('.');
+  const domain = parts.slice(1).join('.');
+  if (domain !== SERVER_URL.hostname) {
+    debug('Received connection to unknown domain: %s', domain);
+    return;
+  }
+  const host = parts[0];
+  debug('Looking up backend: %s', host);
+  const backend = BACKENDS[host];
+  if (!backend) {
+    debug('No backend for: %s', host);
+  }
+  return [backend, url];
+}
 
 wssBackends.on('connection', (ws, req) => {
   // Create a socket backend to handle requests.
@@ -59,10 +76,7 @@ server.on('error', (e) => {
 
 server.on('request', (req, res) => {
   debug('HTTP request received');
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const host = url.hostname.split('.')[0];
-  debug('Looking up backend: %s', host);
-  const backend = BACKENDS[host];
+  const [backend, url] = parseHost(req);
 
   if (!backend) {
     res.statusCode = 502;

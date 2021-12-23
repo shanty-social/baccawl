@@ -3,6 +3,9 @@ FROM arm64v8/node:17-alpine
 ADD ./proxy /app
 
 WORKDIR /app
-RUN npm i -g
+RUN apk add --no-cache build-base && \
+    npm i -g node-pre-gyp && \
+    npm i --unsafe-perms && \
+    apk del build-base
 
 ENTRYPOINT [ "npm", "run", "client" ]

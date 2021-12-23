@@ -2,19 +2,21 @@ const { URL } = require('url');
 const { v4: uuidv4 } = require('uuid');
 const { WebSocket } = require('ws');
 const ReconnectingWebSocket = require('reconnecting-websocket');
-const debug = require('debug')('weproxy:client');
+const debug = require('debug')('baccawl:client');
 const WebSocketResponse = require('./lib/ws/response');
 
 const CLIENT_ID = process.env['CLIENT_ID'] || uuidv4().toString();
-const BASE_URL = new URL(process.env['BASE_URL'] || 'https://www.google.com/');
-const SERVER_URL = new URL(process.env['SERVER_URL'], 'http://localhost:8080/');
-const PROXY_HOST = `${CLIENT_ID}.${SERVER_URL.hostname}:${SERVER_URL.port}`;
+const HTTP_HOST = new URL(process.env['HTTP_HOST'] || 'https://www.google.com/');
+const SERVER_URL = new URL(process.env['SERVER_URL'], 'http://localhost');
+SERVER_URL.hostname = `${CLIENT_ID}.${SERVER_URL.hostname}`;
+SERVER_URL.pathname = '_WGtvxgPJ/';
+const PROXY_HOST = SERVER_URL.toString();
 const RESPONSES = [];
 
 debug('PROXY_HOST: %s', PROXY_HOST);
-const ws = new ReconnectingWebSocket(`ws://${PROXY_HOST}/backend/`, [], {
+const ws = new ReconnectingWebSocket(PROXY_HOST, [], {
   WebSocket,
-  origin: `http://${PROXY_HOST}/backend/`,
+  origin: PROXY_HOST,
 });
 
 ws.addEventListener('open', () => {
@@ -32,7 +34,7 @@ ws.addEventListener('message', (e) => {
   let response = RESPONSES[json.request.id];
   if (!response) {
     // Start a new response to handle this request.
-    response = new WebSocketResponse(ws, json, BASE_URL);
+    response = new WebSocketResponse(ws, json, HTTP_HOST);
     // Register response, and deregister once completed.
     debug('Registering response for: %s', response.id);
     RESPONSES[response.id] = response;

@@ -1,7 +1,7 @@
 const http = require('http');
 const { URL } = require('url');
 const { WebSocketServer } = require('ws');
-const debug = require('debug')('weproxy:server');
+const debug = require('debug')('baccawl:server');
 const WebSocketBackend = require('./lib/ws/backend');
 
 const server = http.createServer();
@@ -9,6 +9,9 @@ const wssBackends = new WebSocketServer({ noServer: true });
 const wssFrontends = new WebSocketServer({ noServer: true });
 
 const BACKENDS = {};
+const SERVER_HOST = process.env.SERVER_HOST || 'localhost';
+const SERVER_PORT = parseInt(process.env.SERVER_PORT || '8080');
+const SERVER_URL = new URL(process.env['SERVER_URL'], 'http://localhost');
 
 wssBackends.on('connection', (ws, req) => {
   // Create a socket backend to handle requests.
@@ -36,20 +39,17 @@ server.on('upgrade', (req, sock, head) => {
   debug('Upgrade at url: %O', req.url);
 
   switch (req.url) {
-    case '/backend/':
+    case '/_WGtvxgPJ/':
       wssBackends.handleUpgrade(req, sock, head, (ws) => {
         wssBackends.emit('connection', ws, req);
       });
       break;
 
-    case '/frontend/':
+    default:
+      // We have to proxy websocket connections too.
       wssFrontends.handleUpgrade(req, sock, head, (ws) => {
         wssFrontends.emit('connection', ws, req);
       });
-      break;
-
-    default:
-      sock.destroy();
   }
 });
 
@@ -76,6 +76,7 @@ server.on('request', (req, res) => {
   req.on('end', beReq.handleEnd.bind(beReq));
 });
 
-server.listen(8080, () => {
-  debug('Listening on port %i', server.address().port);
+server.listen(SERVER_PORT, SERVER_HOST, () => {
+  const addr = server.address();
+  debug('Listening at, http://%s:%i/', addr.address, addr.port);
 });

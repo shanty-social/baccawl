@@ -1,5 +1,5 @@
 {
-  "name": "weproxy-server",
+  "name": "baccawl",
   "version": "0.98.0",
   "description": "Websocket server, HTTP proxy.",
   "main": "index.js",

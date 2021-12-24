@@ -1,11 +1,12 @@
-version: "3"
+version: "3.4"
 
 services:
 
   server:
     image: server
     build:
-      dockerfile: ./docker/server/Dockerfile
+      dockerfile: ./docker/proxy/Dockerfile
+      target: server
       context: ./
     volumes:
       - ./proxy/server.js:/app/server.js:ro
@@ -19,7 +20,8 @@ services:
   client:
     image: client
     build:
-      dockerfile: ./docker/client/Dockerfile
+      dockerfile: ./docker/proxy/Dockerfile
+      target: client
       context: ./
     volumes:
       - ./proxy/client.js:/app/client.js:ro

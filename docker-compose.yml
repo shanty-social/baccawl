@@ -30,7 +30,7 @@ services:
       - DEBUG=baccawl*
       - CLIENT_ID=test_host
       - SERVER_URL=ws://shanty.local
-      - HTTP_HOST=http://whoami:80
+      - HTTP_HOST=http://echo:8080
 
   haproxy:
     image: haproxytech/haproxy-alpine:2.6
@@ -43,5 +43,5 @@ services:
     ports:
       - 8080:80
 
-  whoami:
-    image: traefik/whoami
+  echo:
+    image: jmalloc/echo-server

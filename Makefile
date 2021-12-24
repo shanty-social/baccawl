@@ -23,7 +23,12 @@ run:
 
 .PHONY: test
 test:
-	${MAKE} -C console test
+	${MAKE} -C proxy test
+
+
+.PHONY: lint
+lint:
+	${MAKE} -C proxy lint
 
 
 .PHONY: load

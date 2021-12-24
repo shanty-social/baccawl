@@ -33,7 +33,7 @@ jobs:
 
       - name: build and push server
         run: |
-          docker buildx build -f docker/console/Dockerfile \
+          docker buildx build -f docker/proxy/Dockerfile \
             --push \
             --target server \
             --tag ${{secrets.DOCKER_USER}}/baccawl-server:latest \
@@ -42,7 +42,7 @@ jobs:
 
       - name: build and push client
         run: |
-          docker buildx build -f docker/console/Dockerfile \
+          docker buildx build -f docker/proxy/Dockerfile \
             --push \
             --target client \
             --tag ${{secrets.DOCKER_USER}}/baccawl-client:latest \

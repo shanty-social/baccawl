@@ -38,7 +38,7 @@ jobs:
             --target server \
             --tag ${{secrets.DOCKER_USER}}/baccawl-server:latest \
             --tag ${{secrets.DOCKER_USER}}/baccawl-server:${{env.tag}} \
-            --platform linux/amd64,linux/arm/v7,linux/arm64 .
+            --platform linux/amd64 .
 
       - name: build and push client
         run: |

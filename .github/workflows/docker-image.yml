@@ -18,8 +18,8 @@ jobs:
 
       - name: Test & lint
         run: |
-          apt install -y build-essential
-          npm i -g node-pre-gyp
+          sudo apt install -y build-essential
+          sudo npm i -g node-pre-gyp
           make ci
 
       - name: Create tag

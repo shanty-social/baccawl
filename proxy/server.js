@@ -67,7 +67,7 @@ class ProxyServer extends EventEmitter {
     if (req.url === BACKEND_PATH) {
       // TODO: authentication is required.
       this._ws.handleUpgrade(req, sock, head, (ws) => {
-        const backend = new ProxyClientBackend(req, ws, head);
+        const backend = new ProxyClientBackend(req, ws);
         debug('Adding backend: %s', backend.id);
         if (this.backends[backend.id]) {
           debug('Removing duplicate backend: %s', backend.id);

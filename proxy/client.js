@@ -24,6 +24,10 @@ class ProxyClient extends EventEmitter {
     this.proxyHost = SERVER_URL.toString();
     debug('proxyHost: %s', this.proxyHost);
     this.requests = {};
+    this.tunnelWs = null;
+  }
+
+  connect() {
     this.tunnelWs = new ReconnectingWebSocket(this.proxyHost, [], {
       WebSocket,
       origin: this.proxyHost,
@@ -104,3 +108,4 @@ class ProxyClient extends EventEmitter {
 }
 
 const client = new ProxyClient();
+client.connect();

@@ -5,7 +5,7 @@ const ProxiedRequest = require('./proxied-request');
 const ProxiedWebSocket = require('./proxied-web-socket');
 
 class ProxyClientBackend extends EventEmitter {
-  constructor(req, ws, head) {
+  constructor(req, ws) {
     super();
     const url = new URL(req.url, `http://${req.headers.host}`);
     const parts = url.hostname.split('.');

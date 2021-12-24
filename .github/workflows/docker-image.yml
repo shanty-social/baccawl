@@ -1,0 +1,64 @@
+
+  
+# https://www.docker.com/blog/multi-arch-build-and-images-the-simple-way/
+name: build docker image
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v2
+
+      - name: Create tag
+        run: echo "tag=$(date +%s)" >> $GITHUB_ENV
+
+      - name: install buildx
+        id: buildx
+        uses: crazy-max/ghaction-docker-buildx@v1
+        with:
+          version: latest
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v1 
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: build and push server
+        run: |
+          docker buildx build -f docker/proxy/Dockerfile \
+            --push \
+            --target server \
+            --tag ${{secrets.DOCKER_USER}}/baccawl-server:latest \
+            --tag ${{secrets.DOCKER_USER}}/baccawl-server:${{env.tag}} \
+            --platform linux/amd64 .
+
+      - name: build and push client
+        run: |
+          docker buildx build -f docker/proxy/Dockerfile \
+            --push \
+            --target client \
+            --tag ${{secrets.DOCKER_USER}}/baccawl-client:latest \
+            --tag ${{secrets.DOCKER_USER}}/baccawl-client:${{env.tag}} \
+            --platform linux/amd64,linux/arm/v7,linux/arm64 .
+
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@v2
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD_ }}
+          repository: shantysocial/baccawl-client
+
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@v2
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD_ }}
+          repository: shantysocial/baccawl-server

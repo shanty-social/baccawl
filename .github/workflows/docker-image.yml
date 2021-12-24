@@ -16,6 +16,9 @@ jobs:
       - name: checkout code
         uses: actions/checkout@v2
 
+      - name: Test & lint
+        run: make ci
+
       - name: Create tag
         run: echo "tag=$(date +%s)" >> $GITHUB_ENV
 

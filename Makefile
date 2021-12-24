@@ -31,6 +31,10 @@ lint:
 	${MAKE} -C proxy lint
 
 
+.PHONY: ci
+ci: test lint
+
+
 .PHONY: load
 load: deps
 	xdg-open http://0.0.0.0:8089

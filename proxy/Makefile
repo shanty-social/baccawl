@@ -13,3 +13,7 @@ test: deps
 .PHONY: lint
 lint:
 	npm run lint
+
+
+.PHONY: ci
+ci: test lint

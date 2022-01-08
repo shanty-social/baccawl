@@ -1,10 +1,29 @@
 const { timingSafeEqual } = require('crypto');
 const { readFileSync } = require('fs');
 const { inspect } = require('util');
+const DEBUG = require('debug')('sshd');
 
 const { utils: { parseKey }, Server } = require('ssh2');
 
+// TODO: this will be done by an auth server.
 const allowedPubKey = parseKey(readFileSync('/etc/sshd/keys/id_rsa.pub'));
+
+const KEY_DIR = process.env.SSHD_HOST_KEY_DIR;
+const HOST = process.env.SSHD_HOST || '127.0.0.1';
+const PORT = parseInt(process.env.SSHD_PORT | 22);
+
+function readServerKeys() {
+  const keys = [];
+  const paths = fs.readdirSync(KEY_DIR);
+
+  for (const path in paths) {
+    if (path.startsWith('ssh_host') && !path.endsWith('.pub')) {
+      keys.append(readFileSync(path));
+    }
+  }
+
+  return keys;
+}
 
 function checkValue(input, allowed) {
   const autoReject = (input.length !== allowed.length);
@@ -17,44 +36,45 @@ function checkValue(input, allowed) {
   return (!autoReject && isMatch);
 }
 
-new Server({
-  hostKeys: [readFileSync('host.key')]
-}, (client) => {
-  console.log('Client connected!');
+function start(host, port) {
+  const server = new Server({
+    hostKeys: readServerKeys(),
+  });
 
-  client.on('authentication', (ctx) => {
-    let userName = ctx.username;
-    let allowed = false;
+  server.on('connection', (client) => {
+    DEBUG('Client connected!');
 
-    switch (ctx.method) {
-      case 'password':
-        return ctx.reject();
-
-      case 'publickey':
-        if (ctx.key.algo !== allowedPubKey.type
-            || !checkValue(ctx.key.data, allowedPubKey.getPublicSSH())
-            || (ctx.signature && allowedPubKey.verify(ctx.blob, ctx.signature) !== true)) {
+    client.on('authentication', (ctx) => {
+      let userName = ctx.username;
+  
+      switch (ctx.method) {
+        case 'password':
           return ctx.reject();
-        } else {
-          allowed = true;
-        }
-        break;
+  
+        case 'publickey':
+          // TODO: make http call to auth server with username and key info.
+          if (ctx.key.algo !== allowedPubKey.type
+              || !checkValue(ctx.key.data, allowedPubKey.getPublicSSH())
+              || (ctx.signature && allowedPubKey.verify(ctx.blob, ctx.signature) !== true)) {
+            return ctx.reject();
+          } else {
+            ctx.accept();
+          }
+          break;
+  
+        default:
+          return ctx.reject();
+      }
+    });
 
-      default:
-        return ctx.reject();
-    }
-
-    if (allowed)
-      ctx.accept();
-    else
-      ctx.reject();
-  }).on('ready', () => {
-    console.log('Client authenticated!');
+    client.on('ready', () => {
+      DEBUG('Client authenticated!');
+    })
 
     client.on('session', (accept, reject) => {
       const session = accept();
       session.once('exec', (accept, reject, info) => {
-        console.log('Client wants to execute: ' + inspect(info.command));
+        DEBUG('Client wants to execute: ' + inspect(info.command));
         const stream = accept();
         stream.stderr.write('Oh no, the dreaded errors!\n');
         stream.write('Just kidding about the errors!\n');
@@ -62,17 +82,25 @@ new Server({
         stream.end();
       });
     });
-  }).on('close', () => {
-    console.log('Client disconnected');
-  });
-}).listen(0, '127.0.0.1', function() {
-  console.log('Listening on port ' + this.address().port);
-});
 
-function main() {
+    client.on('close', () => {
+      DEBUG('Client disconnected');
+    });
+  });
+
+  server.listen(port, host, () => {
+    const addr = this.address();
+    console.log(`Listening at ${addr.address}:${addr.port}`);
+  });
+
   console.log('Starting sshd...');
+  return server;
 }
 
 if (require.main === module) {
-  main();
+  start(HOST, PORT);
 }
+
+module.exports = {
+  start,
+};

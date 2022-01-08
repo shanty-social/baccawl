@@ -14,6 +14,8 @@ services:
     environment:
       - DEBUG=sshd*
       - SSHD_HOST_KEY_DIR=/etc/sshd/keys/
+      - SSHD_HOST=0.0.0.0
+      - SSHD_PORT=22
 
   client:
     image: client
@@ -22,32 +24,31 @@ services:
       context: ./
     volumes:
       - ./docker/client/entrypoint.sh:/entrypoint.sh:ro
-      - ./docker/client/id_rsa:/id_rsa:ro
+      - ./docker/client/keys:/etc/ssh/keys
     depends_on:
       - sshd
     environment:
-      - SSH_HOST=sshd
-      - SSH_PORT=22
-      - SSH_KEY=/id_rsa
+      - SSH_HOST=proxy
+      - SSH_PORT=443
+      - SSH_KEY=/etc/ssh/keys/id_rsa
+      - SSH_USER=0f761d53-ae25-42ff-80ca-0b366a833233
       - SSH_FORWARD_HOST=echo
       - SSH_FORWARD_PORT=8080
 
-  openresty:
+  proxy:
     image: proxy
     build:
       dockerfile: ./docker/proxy/Dockerfile
       context: ./
     volumes:
+      - ./docker/proxy/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
       - ./docker/proxy/conf.d:/etc/nginx/conf.d:ro
       - ./docker/proxy/lua:/app:ro
     depends_on:
       - sshd
-    networks:
-      default:
-        aliases:
-          - test_host.shanty.local
     ports:
       - 8080:80
+      - 8443:443
 
   echo:
     image: jmalloc/echo-server

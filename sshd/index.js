@@ -1,12 +1,11 @@
+const fs = require('fs');
+const pathlib = require('path');
 const { timingSafeEqual } = require('crypto');
 const { readFileSync } = require('fs');
 const { inspect } = require('util');
 const DEBUG = require('debug')('sshd');
 
 const { utils: { parseKey }, Server } = require('ssh2');
-
-// TODO: this will be done by an auth server.
-const allowedPubKey = parseKey(readFileSync('/etc/sshd/keys/id_rsa.pub'));
 
 const KEY_DIR = process.env.SSHD_HOST_KEY_DIR;
 const HOST = process.env.SSHD_HOST || '127.0.0.1';
@@ -16,10 +15,13 @@ function readServerKeys() {
   const keys = [];
   const paths = fs.readdirSync(KEY_DIR);
 
-  for (const path in paths) {
-    if (path.startsWith('ssh_host') && !path.endsWith('.pub')) {
-      keys.append(readFileSync(path));
+  for (const path of paths) {
+    if (!path.startsWith('ssh_host') || path.endsWith('.pub')) {
+      DEBUG('Skipping non-key file %s', path);
+      continue;
     }
+    DEBUG('Loading key %s', path);
+    keys.push(readFileSync(pathlib.join(KEY_DIR, path)));
   }
 
   return keys;
@@ -89,7 +91,7 @@ function start(host, port) {
   });
 
   server.listen(port, host, () => {
-    const addr = this.address();
+    const addr = server.address();
     console.log(`Listening at ${addr.address}:${addr.port}`);
   });
 

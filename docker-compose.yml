@@ -42,7 +42,6 @@ services:
       context: ./
     volumes:
       - ./docker/proxy/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
-      - ./docker/proxy/conf.d:/etc/nginx/conf.d:ro
       - ./docker/proxy/lua:/app:ro
     depends_on:
       - sshd

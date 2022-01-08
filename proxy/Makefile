@@ -11,7 +11,7 @@ test: deps
 
 
 .PHONY: lint
-lint:
+lint: deps
 	npm run lint
 
 

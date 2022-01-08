@@ -13,9 +13,12 @@ services:
       - ./proxy/lib:/app/lib:ro
     environment:
       - DEBUG=baccawl*
-      - SERVER_HOST=0.0.0.0
-      - SERVER_PORT=8080
-      - SERVER_URL=ws://shanty.local
+      - PROXY_HOST=0.0.0.0
+      - PROXY_BCAST=192.168.128.255
+      - HTTP_PORT=8080
+      - WHISPER_PORT=6200
+      - TRANSIT_PORT=6300
+      - BACKEND_PORT=6400
 
   client:
     image: client
@@ -31,7 +34,8 @@ services:
     environment:
       - DEBUG=baccawl*
       - CLIENT_ID=test_host
-      - SERVER_URL=ws://shanty.local
+      - SERVER=server
+      - PORT=6400
       - HTTP_HOST=http://echo:8080
 
   haproxy:

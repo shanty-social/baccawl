@@ -1,111 +1,79 @@
 const { URL } = require('url');
+const net = require('net');
 const http = require('http');
 const https = require('https');
-const EventEmitter = require('events');
+const { EventEmitter } = require('events');
 const debug = require('debug')('baccawl:client');
 const { v4: uuidv4 } = require('uuid');
 const { WebSocket } = require('ws');
-const ReconnectingWebSocket = require('reconnecting-websocket');
-const ProxiedResponse = require('./lib/ws/proxied-response');
-const ProxiedWebSocket = require('./lib/ws/proxied-web-socket');
+const { BackendMessage } = require('./lib/messages');
+const { ForwardedWebRequest, ForwardedWebSocket } = require('./lib/forwarded');
 
 const CLIENT_ID = process.env['CLIENT_ID'] || uuidv4().toString();
 const HTTP_HOST = new URL(process.env['HTTP_HOST'] || 'https://www.google.com/');
-const SERVER_URL = new URL(process.env['SERVER_URL'], 'http://localhost');
-const BACKEND_PATH = process.env.BACKEND_PATH || '/_WGtvxgPJ/';
+const SERVER = process.env['SERVER'] || 'localhost';
+const PORT = parseInt(process.env.PORT || '6400');
 
-class ProxyClient extends EventEmitter {
-  constructor() {
-    super();
-    this.id = CLIENT_ID;
-    SERVER_URL.hostname = `${this.id}.${SERVER_URL.hostname}`;
-    SERVER_URL.pathname = BACKEND_PATH;
-    this.baseUrl = HTTP_HOST;
-    this.proxyHost = SERVER_URL.toString();
-    debug('proxyHost: %s', this.proxyHost);
-    this.requests = {};
-    this.tunnelWs = null;
+class ProxyClient {
+  constructor({clientId, httpHost, server, port}) {
+    this._clientId = clientId;
+    this._httpHost = httpHost;
+    this._server = server;
+    this._port = port;
+    this._requests = {};
+    this._sock = new net.Socket();
+    this._sock.on('data', this.onData.bind(this));
+    this._sock.on('end', this.onEnd.bind(this));
+  }
+
+  onData(chunk) {
+    const m = BackendMessage.deserialize(chunk);
+  }
+
+  onEnd() {
+    this.connect();
+  }
+
+  makeWebRequest(message) {
+    const ep = new EventEmitter();
+    const fwr = new ForwardedWebRequest(ep, req, res);
+    this._requests(message.requestId) = { request: fwr, eventProxy: ep };
+  }
+
+  makeWebSocket(message) {
+    const ep = new EventEmitter();
+    const fwr = new ForwardedWebSocket(ep, ws);
+    this._requests(message.requestId) = { request: fwr, eventProxy: ep };
   }
 
   connect() {
-    this.tunnelWs = new ReconnectingWebSocket(this.proxyHost, [], {
-      WebSocket,
-      origin: this.proxyHost,
-    });
-    this.tunnelWs.addEventListener('open', () => {
-      debug('connected');
-    });
-    this.tunnelWs.addEventListener('close', () => {
-      debug('disconnected');
-    });
-    this.tunnelWs.addEventListener('message', (evt) => {
-      const json = JSON.parse(evt.data);
-      debug('Received message: %O', json);
-      const request = this.requests[json.id];
-      if (request) {
-        request.recv(json);
-        return;
-      }
-      // Start new request.
-      if (json.socket) {
-        this.startSocket(json);
-      } else {
-        this.startRequest(json);
-      }
+    this._sock.connect(this._port, this._server, () => {
+      const m = new BackendMessage(BackendMessage.TYPES.AUTH, this._clientId);
+      this._sock.write(m.serialize());
     });
   }
 
-  startSocket(json) {
-    // Open websocket.
-    const url = new URL(this.baseUrl);
-    url.protocol = json.socket.url.protocol;
-    url.pathname = json.socket.url.pathname;
-    url.search = json.socket.url.search;
-    url.username = json.socket.url.username;
-    url.password = json.socket.url.password;
-    const ws = new WebSocket(url);
-    const pSock = new ProxiedWebSocket({
-      id: json.id,
-      tunnelWs: this.tunnelWs,
-      clientWs: ws,
-    });
-    debug('Adding socket %s to %s', pSock.id, this.id);
-    this.requests[pSock.id] = pSock;
-    pSock.on('end', () => {
-      debug('Removing socket %s from %s', pSock.id, this.id);
-      delete this.requests[pSock.id];
-    });
-  }
-
-  startRequest(json) {
-    const client = (this.baseUrl.protocol === 'http:') ? http : https;
-    const headers = {
-      ...json.request.headers,
-      host: this.baseUrl.host,
-    };
-    const options = {
-      protocol: this.baseUrl.protocol,
-      port: this.baseUrl.port,
-      host: this.baseUrl.hostname,
-      method: json.request.method,
-      path: json.request.url.pathname,
-      search: json.request.url.search,
-      username: json.request.url.username,
-      password: json.request.url.password,
-      headers: headers,
-    };
-
-    debug('Request options: %O', options);
-    const req = client.request(options)
-    const pRes = new ProxiedResponse(this.tunnelWs, json.id, req);
-    debug('Adding request %s to %s', pRes.id, this.id);
-    this.requests[pRes.id] = pRes;
-    pRes.on('end', () => {
-      debug('Removing request %s from %s', pRes.id, this.id);
-      delete this.requests[pRes.id];
-    });
+  start() {
+    this.connect();
   }
 }
 
-const client = new ProxyClient();
-client.connect();
+function start(options) {
+  const client = new ProxyClient(options);
+  client.start();
+  return client;
+}
+
+if (require.main === module) {
+  start({
+    clientId: CLIENT_ID,
+    httpHost: HTTP_HOST,
+    server: SERVER,
+    port: PORT,
+  });
+}
+
+module.exports = {
+  ProxyClient,
+  start,
+};

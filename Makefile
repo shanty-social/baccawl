@@ -6,9 +6,13 @@ sysdeps:
 	sudo apt-get install qemu binfmt-support qemu-user-static
 
 
+.venv: Pipfile
+	PIPENV_VENV_IN_PROJECT=true pipenv install
+	touch .venv
+
+
 .PHONY: deps
-deps:
-	pipenv install
+deps: .venv
 
 
 .PHONY: build

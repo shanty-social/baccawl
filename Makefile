@@ -18,17 +18,17 @@ build:
 
 .PHONY: run
 run:
-	${DOCKER_COMPOSE} up --scale server=3
+	${DOCKER_COMPOSE} up --scale ssdh=2
 
 
 .PHONY: test
 test:
-	${MAKE} -C proxy test
+	${MAKE} -C sshd test
 
 
 .PHONY: lint
 lint:
-	${MAKE} -C proxy lint
+	${MAKE} -C sshd lint
 
 
 .PHONY: ci

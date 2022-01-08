@@ -18,8 +18,6 @@ jobs:
 
       - name: Test & lint
         run: |
-          sudo apt install -y build-essential
-          sudo npm i -g node-pre-gyp
           make ci
 
       - name: Create tag
@@ -37,20 +35,26 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: build and push server
+      - name: build and push sshd
+        run: |
+          docker buildx build -f docker/sshd/Dockerfile \
+            --push \
+            --tag ${{secrets.DOCKER_USER}}/baccawl-sshd:latest \
+            --tag ${{secrets.DOCKER_USER}}/baccawl-sshd:${{env.tag}} \
+            --platform linux/amd64 .
+
+      - name: build and push proxy
         run: |
           docker buildx build -f docker/proxy/Dockerfile \
             --push \
-            --target server \
-            --tag ${{secrets.DOCKER_USER}}/baccawl-server:latest \
-            --tag ${{secrets.DOCKER_USER}}/baccawl-server:${{env.tag}} \
+            --tag ${{secrets.DOCKER_USER}}/baccawl-proxy:latest \
+            --tag ${{secrets.DOCKER_USER}}/baccawl-proxy:${{env.tag}} \
             --platform linux/amd64 .
 
       - name: build and push client
         run: |
-          docker buildx build -f docker/proxy/Dockerfile \
+          docker buildx build -f docker/client/Dockerfile \
             --push \
-            --target client \
             --tag ${{secrets.DOCKER_USER}}/baccawl-client:latest \
             --tag ${{secrets.DOCKER_USER}}/baccawl-client:${{env.tag}} \
             --platform linux/amd64,linux/arm/v7,linux/arm64 .
@@ -67,4 +71,4 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASSWORD_ }}
-          repository: shantysocial/baccawl-server
+          repository: shantysocial/baccawl-sshd

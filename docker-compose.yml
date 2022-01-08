@@ -9,9 +9,11 @@ services:
       context: ./
     volumes:
       - ./docker/sshd/entrypoint.sh:/entrypoint.sh:ro
+      - ./docker/sshd/keys/:/etc/sshd/keys/:ro
       - ./sshd:/app:ro
     environment:
       - DEBUG=sshd*
+      - SSHD_HOST_KEY_DIR=/etc/sshd/keys/
 
   client:
     image: client
@@ -31,9 +33,13 @@ services:
       - SSH_FORWARD_PORT=8080
 
   openresty:
-    image: openresty/openresty:alpine
+    image: proxy
+    build:
+      dockerfile: ./docker/proxy/Dockerfile
+      context: ./
     volumes:
-      - ./docker/openresty/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/proxy/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/proxy/lua:/app:ro
     depends_on:
       - sshd
     networks:

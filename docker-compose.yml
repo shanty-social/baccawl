@@ -2,42 +2,40 @@ version: "3.4"
 
 services:
 
-  server:
-    image: server
+  sshd:
+    image: sshd
     build:
-      dockerfile: ./docker/proxy/Dockerfile
-      target: server
+      dockerfile: ./docker/sshd/Dockerfile
       context: ./
     volumes:
-      - ./proxy/server.js:/app/server.js:ro
-      - ./proxy/lib:/app/lib:ro
+      - ./docker/sshd/entrypoint.sh:/entrypoint.sh:ro
+      - ./sshd:/app:ro
     environment:
-      - DEBUG=baccawl*
-      - SERVER_HOST=0.0.0.0
-      - SERVER_PORT=8080
-      - SERVER_URL=ws://shanty.local
+      - DEBUG=sshd*
 
   client:
     image: client
     build:
-      dockerfile: ./docker/proxy/Dockerfile
-      target: client
+      dockerfile: ./docker/client/Dockerfile
       context: ./
     volumes:
-      - ./proxy/client.js:/app/client.js:ro
-      - ./proxy/lib:/app/lib:ro
+      - ./docker/client/entrypoint.sh:/entrypoint.sh:ro
+      - ./docker/client/id_rsa:/id_rsa:ro
     depends_on:
-      - server
+      - sshd
     environment:
-      - DEBUG=baccawl*
-      - CLIENT_ID=test_host
-      - SERVER_URL=ws://shanty.local
-      - HTTP_HOST=http://echo:8080
+      - SSH_HOST=sshd
+      - SSH_PORT=22
+      - SSH_KEY=/id_rsa
+      - SSH_FORWARD_HOST=echo
+      - SSH_FORWARD_PORT=8080
 
-  haproxy:
-    image: haproxytech/haproxy-alpine:2.6
+  openresty:
+    image: openresty/openresty:alpine
     volumes:
-      - ./docker/haproxy/haproxy.cfg:/etc/haproxy/haproxy.cfg:ro
+      - ./docker/openresty/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - sshd
     networks:
       default:
         aliases:

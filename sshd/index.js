@@ -1,15 +1,22 @@
 const fs = require('fs');
 const pathlib = require('path');
+const net = require('net');
+const http = require('http');
+const jwtEncode = require('jwt-encode');
 const { timingSafeEqual } = require('crypto');
 const { readFileSync } = require('fs');
-const { inspect } = require('util');
 const DEBUG = require('debug')('sshd');
+const localIp = require('local-ip')('eth0');
 
 const { utils: { parseKey }, Server } = require('ssh2');
 
 const KEY_DIR = process.env.SSHD_HOST_KEY_DIR;
 const HOST = process.env.SSHD_HOST || '127.0.0.1';
 const PORT = parseInt(process.env.SSHD_PORT | 22);
+const SSH_KEY = process.env.SSH_KEY;
+const SECRET_KEY = process.env.SECRET_KEY;
+
+const ALLOWED_PUB_KEY = parseKey(readFileSync(SSH_KEY));
 
 function readServerKeys() {
   const keys = [];
@@ -44,28 +51,33 @@ function start(host, port) {
   });
 
   server.on('connection', (client) => {
-    DEBUG('Client connected!');
+    let username = null;
 
+    DEBUG('Client connected!');
     client.on('authentication', (ctx) => {
-      let userName = ctx.username;
-  
+      DEBUG('Authenticating with %s', ctx.method);
+
       switch (ctx.method) {
         case 'password':
-          return ctx.reject();
+          DEBUG('Rejecting password');
+          return ctx.reject(['publickey']);
   
         case 'publickey':
           // TODO: make http call to auth server with username and key info.
-          if (ctx.key.algo !== allowedPubKey.type
-              || !checkValue(ctx.key.data, allowedPubKey.getPublicSSH())
-              || (ctx.signature && allowedPubKey.verify(ctx.blob, ctx.signature) !== true)) {
+          if (ctx.key.algo !== ALLOWED_PUB_KEY.type
+              || !checkValue(ctx.key.data, ALLOWED_PUB_KEY.getPublicSSH())
+              || (ctx.signature && ALLOWED_PUB_KEY.verify(ctx.blob, ctx.signature) !== true)) {
+            DEBUG('Rejecting key')
             return ctx.reject();
           } else {
+            DEBUG('Accepting key');
+            username = ctx.username;
             ctx.accept();
           }
           break;
   
         default:
-          return ctx.reject();
+          return ctx.reject(['publickey']);
       }
     });
 
@@ -73,16 +85,76 @@ function start(host, port) {
       DEBUG('Client authenticated!');
     })
 
-    client.on('session', (accept, reject) => {
-      const session = accept();
-      session.once('exec', (accept, reject, info) => {
-        DEBUG('Client wants to execute: ' + inspect(info.command));
-        const stream = accept();
-        stream.stderr.write('Oh no, the dreaded errors!\n');
-        stream.write('Just kidding about the errors!\n');
-        stream.exit(0);
-        stream.end();
+    client.on('request', (accept, reject, name, info) => {
+      let { bindAddr, bindPort } = info;
+
+      DEBUG('Received request: %s, %O', name, info);
+
+      if (name !== 'tcpip-forward' || bindPort !== 0) {
+        DEBUG('Request rejected');
+        reject();
+        client.end();
+        return;
+      }
+
+      DEBUG('TCP forwarding request received');
+
+      const server = net.createServer((c) => {
+        DEBUG('TCP connection received, forwarding');
+        const addr = c.address();
+        client.forwardOut(bindAddr, bindPort, addr.address, addr.port, (e, channel) => {
+          if (e) {
+            DEBUG('Error forwarding: %O', e);
+            client.end();
+            return;
+          }
+          // Connect client socket and SSH channel.
+          DEBUG('Connecting socket<->channel');
+          c.pipe(channel);
+          channel.pipe(c);
+        });
+      }).listen(bindPort, bindAddr, () => {
+        bindPort = server.address().port;
+        DEBUG('Listening at: %s:%i', bindAddr, bindPort);
+
+        // Advertise to proxy.
+        const req = http.request({
+          method: 'post',
+          host: 'proxy',
+          path: '/local/add/',
+        }, (res) => {
+          if (res.statusCode !== 200) {
+            DEBUG('Proxy checkin failed');
+            reject();
+            client.end();
+          } else {
+            DEBUG('Proxy checkin successful');
+            accept(bindPort);  
+          }
+        });
+
+        req.on('error', (e) => {
+          DEBUG('Proxy checkin error: %O', e);
+          reject();
+          client.end();
+        });
+
+        // TODO: make it expire in 30s
+        const jwt = jwtEncode({
+          username,
+          host: localIp,
+          port: bindPort,
+          iat: Date.now(),
+        }, SECRET_KEY);
+
+        req.write(jwt);
+        req.end();  
       });
+    });
+
+    client.on('error', (e) => {
+      DEBUG('Client error: %O', e);
+      client.end();
     });
 
     client.on('close', () => {

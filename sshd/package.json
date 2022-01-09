@@ -16,6 +16,8 @@
   "license": "MIT",
   "dependencies": {
     "debug": "^4.3.3",
+    "jwt-encode": "^1.0.1",
+    "local-ip": "^2.0.0",
     "ssh2": "^1.5.0"
   },
   "devDependencies": {

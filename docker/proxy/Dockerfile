@@ -1,7 +1,8 @@
-FROM ${ARCH}openresty/openresty:alpine
+FROM ${ARCH}openresty/openresty:alpine-fat
 
 ADD ./docker/proxy/nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
-ADD ./docker/proxy/lua /app
+
+RUN luarocks install lua-resty-jwt 0.1.10
 
 EXPOSE 443
 EXPOSE 80

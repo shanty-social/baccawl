@@ -1,5 +1,8 @@
 version: "3.4"
 
+volumes:
+  ssh-keys:
+
 services:
 
   sshd:
@@ -9,13 +12,15 @@ services:
       context: ./
     volumes:
       - ./docker/sshd/entrypoint.sh:/entrypoint.sh:ro
-      - ./docker/sshd/keys/:/etc/sshd/keys/:ro
+      - ssh-keys:/etc/sshd/keys/
       - ./sshd:/app:ro
     environment:
       - DEBUG=sshd*
+      - SSH_KEY=/etc/sshd/keys/id_ecdsa
       - SSHD_HOST_KEY_DIR=/etc/sshd/keys/
       - SSHD_HOST=0.0.0.0
       - SSHD_PORT=22
+      - SECRET_KEY=supersecret
 
   client:
     image: client
@@ -24,13 +29,13 @@ services:
       context: ./
     volumes:
       - ./docker/client/entrypoint.sh:/entrypoint.sh:ro
-      - ./docker/client/keys:/etc/ssh/keys
+      - ssh-keys:/etc/ssh/keys
     depends_on:
       - sshd
     environment:
       - SSH_HOST=proxy
       - SSH_PORT=443
-      - SSH_KEY=/etc/ssh/keys/id_rsa
+      - SSH_KEY=/etc/ssh/keys/id_ecdsa
       - SSH_USER=0f761d53-ae25-42ff-80ca-0b366a833233
       - SSH_FORWARD_HOST=echo
       - SSH_FORWARD_PORT=8080
@@ -48,6 +53,8 @@ services:
     ports:
       - 8080:80
       - 8443:443
+    environment:
+      - SECRET_KEY=supersecret
 
   echo:
     image: jmalloc/echo-server

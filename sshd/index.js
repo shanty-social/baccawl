@@ -64,6 +64,7 @@ function start(host, port) {
   
         case 'publickey':
           // TODO: make http call to auth server with username and key info.
+          // At this point a JWT that is used below will be returned.
           if (ctx.key.algo !== ALLOWED_PUB_KEY.type
               || !checkValue(ctx.key.data, ALLOWED_PUB_KEY.getPublicSSH())
               || (ctx.signature && ALLOWED_PUB_KEY.verify(ctx.blob, ctx.signature) !== true)) {
@@ -112,6 +113,10 @@ function start(host, port) {
           DEBUG('Connecting socket<->channel');
           c.pipe(channel);
           channel.pipe(c);
+
+          channel.on('end', () => {
+            DEBUG('TCP forwarding complete');
+          });
         });
       }).listen(bindPort, bindAddr, () => {
         bindPort = server.address().port;
@@ -127,10 +132,10 @@ function start(host, port) {
             DEBUG('Proxy checkin failed');
             reject();
             client.end();
-          } else {
-            DEBUG('Proxy checkin successful');
-            accept(bindPort);  
+            return;
           }
+          DEBUG('Proxy checkin successful');
+          accept(bindPort);  
         });
 
         req.on('error', (e) => {
@@ -139,6 +144,10 @@ function start(host, port) {
           client.end();
         });
 
+        // NOTE: The JWT will actually be fetched as part of authentication. And
+        // it will not contain the host and port, as those are not known during auth.
+        // instead the JWT will be placed in a header and the host/port will be posted
+        // as JSON in the request body.
         // TODO: make it expire in 30s
         const jwt = jwtEncode({
           username,

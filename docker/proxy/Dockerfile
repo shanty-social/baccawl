@@ -1,6 +1,6 @@
 FROM ${ARCH}openresty/openresty:alpine-fat
 
-ADD ./docker/proxy/nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+ADD ./docker/proxy/conf.d /etc/nginx/conf.d
 
 RUN luarocks install lua-resty-jwt 0.1.10
 

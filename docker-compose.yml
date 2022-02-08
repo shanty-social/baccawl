@@ -1,46 +1,64 @@
 version: "3.4"
 
+networks:
+  shared:
+    external:
+      name: shared
+  private:
+
 volumes:
   ssh-keys:
 
 services:
-
-  sshd:
+  conduit-sshd:
     image: sshd
     build:
       dockerfile: ./docker/sshd/Dockerfile
       context: ./
     volumes:
       - ./docker/sshd/entrypoint.sh:/entrypoint.sh:ro
-      - ssh-keys:/etc/sshd/keys/
       - ./sshd:/app:ro
+      - ssh-keys:/etc/sshd/keys
+    networks:
+      - shared
+      - private
+    extra_hosts:
+      - www.shanty.local:192.168.100.200
     environment:
       - DEBUG=sshd*
-      - SSH_KEY=/etc/sshd/keys/id_ecdsa
       - SSHD_HOST_KEY_DIR=/etc/sshd/keys/
       - SSHD_HOST=0.0.0.0
       - SSHD_PORT=22
-      - SECRET_KEY=supersecret
+      - PROXY_URL=http://conduit-proxy:1337
+      - JWT_KEY=supersecret
+      - SHANTY_URL=http://www.shanty.local:8000
 
-  client:
+  conduit-client:
     image: client
     build:
       dockerfile: ./docker/client/Dockerfile
       context: ./
     volumes:
       - ./docker/client/entrypoint.sh:/entrypoint.sh:ro
-      - ssh-keys:/etc/ssh/keys
+    networks:
+      - shared
+      - private
+    extra_hosts:
+      - www.shanty.local:192.168.100.200
+      - console.local:192.168.100.199
     depends_on:
-      - sshd
+      - conduit-sshd
     environment:
-      - SSH_HOST=proxy
+      - SSH_HOST=conduit-proxy
       - SSH_PORT=443
       - SSH_KEY=/etc/ssh/keys/id_ecdsa
-      - SSH_USER=0f761d53-ae25-42ff-80ca-0b366a833233
-      - SSH_FORWARD_HOST=echo
-      - SSH_FORWARD_PORT=8080
+      - SSH_FORWARD_HOST=conduit-echo
+      - SSH_FORWARD_PORT=8888
+      - CONSOLE_URL=http://console.local:8080
+      - CONSOLE_AUTH_TOKEN=abcdefghijklmnopqrstuvwxyz
+      - SHANTY_URL=http://www.shanty.local:8000
 
-  proxy:
+  conduit-proxy:
     image: proxy
     build:
       dockerfile: ./docker/proxy/Dockerfile
@@ -48,13 +66,17 @@ services:
     volumes:
       - ./docker/proxy/conf.d:/etc/nginx/conf.d:ro
       - ./docker/proxy/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+    networks:
+      - private
     depends_on:
-      - sshd
+      - conduit-sshd
     ports:
-      - 8080:80
-      - 8443:443
+      - 10080:80
+      - 10443:443
     environment:
-      - SECRET_KEY=supersecret
+      - JWT_KEY=supersecret
 
-  echo:
+  conduit-echo:
     image: jmalloc/echo-server
+    environment:
+      - PORT=8888

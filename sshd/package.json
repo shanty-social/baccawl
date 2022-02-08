@@ -6,7 +6,7 @@
   "scripts": {
     "test": "mocha tests/**/test_*",
     "lint": "eslint --format node_modules/eslint-friendly-formatter .",
-    "start": "node index.js"
+    "start": "node lib/index.js"
   },
   "repository": {
     "type": "git",

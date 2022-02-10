@@ -5,7 +5,7 @@ const jwtEncode = require('jwt-encode');
 const localIp = require('local-ip')('eth0');
 
 const JWT_KEY = process.env.JWT_KEY;
-const PROXY_URL = new URL(process.env.PROXY_URL || 'http://proxy:1337');
+const PROXY_URL = new URL(process.env.PROXY_URL || 'http://conduit-balancer:1337');
 
 function add(username, port) {
   // Advertise to proxy.

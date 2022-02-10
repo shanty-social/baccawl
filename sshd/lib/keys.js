@@ -7,7 +7,6 @@ const SHANTY_URL = new URL(process.env.SHANTY_URL || 'http://www.shanty.social')
 function checkKey(ctx) {
     return new Promise((resolve, reject) => {
       const postData = JSON.stringify({
-        name: ctx.username,
         key: ctx.key.data.toString('base64'),
         type: ctx.key.algo,
       });
@@ -18,7 +17,7 @@ function checkKey(ctx) {
         method: 'post',
         host: SHANTY_URL.hostname,
         port: SHANTY_URL.port,
-        path: '/api/sshkeys/verify/',
+        path: `/api/sshkeys/${ctx.username}/verify/`,
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': postData.length,

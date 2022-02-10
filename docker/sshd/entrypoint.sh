@@ -17,4 +17,4 @@ if [ ! -f "${SSHD_HOST_KEY_DIR}/ssh_host_ecdsa_key" ]; then
 fi
 
 cd /app
-node lib/index.js
+node_modules/.bin/nodemon lib/index.js

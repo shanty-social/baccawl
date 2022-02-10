@@ -11,7 +11,7 @@ volumes:
 
 services:
   conduit-sshd:
-    image: sshd
+    image: conduit/sshd
     build:
       dockerfile: ./docker/sshd/Dockerfile
       context: ./
@@ -29,17 +29,17 @@ services:
       - SSHD_HOST_KEY_DIR=/etc/sshd/keys/
       - SSHD_HOST=0.0.0.0
       - SSHD_PORT=22
-      - PROXY_URL=http://conduit-proxy:1337
+      - PROXY_URL=http://conduit-balancer:1337
       - JWT_KEY=supersecret
       - SHANTY_URL=http://www.shanty.local:8000
 
-  conduit-client:
-    image: client
+  conduit-sshc:
+    image: conduit/sshc
     build:
-      dockerfile: ./docker/client/Dockerfile
+      dockerfile: ./docker/sshc/Dockerfile
       context: ./
     volumes:
-      - ./docker/client/entrypoint.sh:/entrypoint.sh:ro
+      - ./docker/sshc/entrypoint.sh:/entrypoint.sh:ro
     networks:
       - shared
       - private
@@ -58,14 +58,14 @@ services:
       - CONSOLE_AUTH_TOKEN=abcdefghijklmnopqrstuvwxyz
       - SHANTY_URL=http://www.shanty.local:8000
 
-  conduit-proxy:
-    image: proxy
+  conduit-balancer:
+    image: conduit/balancer
     build:
-      dockerfile: ./docker/proxy/Dockerfile
+      dockerfile: ./docker/balancer/Dockerfile
       context: ./
     volumes:
-      - ./docker/proxy/conf.d:/etc/nginx/conf.d:ro
-      - ./docker/proxy/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      - ./docker/balancer/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/balancer/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
     networks:
       - private
     depends_on:
@@ -75,6 +75,39 @@ services:
       - 10443:443
     environment:
       - JWT_KEY=supersecret
+
+  conduit-reverse:
+    image: conduit/reverse
+    build:
+      dockerfile: ./docker/reverse/Dockerfile
+      context: ./
+    extra_hosts:
+      - console.local:192.168.100.199
+    networks:
+      - shared
+    volumes:
+      - ./docker/reverse/entrypoint.sh:/entrypoint.sh:ro
+      - ./docker/reverse/nginx.conf.tmpl:/etc/nginx/nginx.conf.tmpl:ro
+    environment:
+      - CONSOLE_URL=http://console.local:8080
+      - CONSOLE_AUTH_TOKEN=abcdefghijklmnopqrstuvwxyz
+      - PORT=8080
+
+  conduit-ddclient:
+    image: conduit/ddclient
+    build:
+      dockerfile: ./docker/ddclient/Dockerfile
+      context: ./
+    extra_hosts:
+      - console.local:192.168.100.199
+    networks:
+      - shared
+    volumes:
+      - ./docker/ddclient/entrypoint.sh:/entrypoint.sh:ro
+      - ./docker/ddclient/ddclient.conf.tmpl:/etc/ddclient/ddclient.conf.tmpl:ro
+    environment:
+      - CONSOLE_URL=http://console.local:8080
+      - CONSOLE_AUTH_TOKEN=abcdefghijklmnopqrstuvwxyz
 
   conduit-echo:
     image: jmalloc/echo-server

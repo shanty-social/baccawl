@@ -40,12 +40,14 @@ services:
       context: ./
     volumes:
       - ./docker/sshc/entrypoint.sh:/entrypoint.sh:ro
+    depends_on:
+      - conduit-sshd
     networks:
       - shared
       - private
     extra_hosts:
       - www.shanty.local:192.168.100.200
-      - console.local:192.168.100.199
+      - console.local:172.17.0.1
     depends_on:
       - conduit-sshd
     environment:
@@ -54,7 +56,7 @@ services:
       - SSH_KEY=/etc/ssh/keys/id_ecdsa
       - SSH_FORWARD_HOST=conduit-echo
       - SSH_FORWARD_PORT=8888
-      - CONSOLE_URL=http://console.local:8080
+      - CONSOLE_URL=http://console.local:8008
       - CONSOLE_AUTH_TOKEN=abcdefghijklmnopqrstuvwxyz
       - SHANTY_URL=http://www.shanty.local:8000
 
@@ -81,15 +83,15 @@ services:
     build:
       dockerfile: ./docker/reverse/Dockerfile
       context: ./
-    extra_hosts:
-      - console.local:192.168.100.199
     networks:
-      - shared
+      - private
+    extra_hosts:
+      - console.local:172.17.0.1
     volumes:
       - ./docker/reverse/entrypoint.sh:/entrypoint.sh:ro
       - ./docker/reverse/nginx.conf.tmpl:/etc/nginx/nginx.conf.tmpl:ro
     environment:
-      - CONSOLE_URL=http://console.local:8080
+      - CONSOLE_URL=http://console.local:8008
       - CONSOLE_AUTH_TOKEN=abcdefghijklmnopqrstuvwxyz
       - PORT=8080
 
@@ -98,18 +100,20 @@ services:
     build:
       dockerfile: ./docker/ddclient/Dockerfile
       context: ./
-    extra_hosts:
-      - console.local:192.168.100.199
     networks:
-      - shared
+      - private
+    extra_hosts:
+      - console.local:172.17.0.1
     volumes:
       - ./docker/ddclient/entrypoint.sh:/entrypoint.sh:ro
       - ./docker/ddclient/ddclient.conf.tmpl:/etc/ddclient/ddclient.conf.tmpl:ro
     environment:
-      - CONSOLE_URL=http://console.local:8080
+      - CONSOLE_URL=http://console.local:8008
       - CONSOLE_AUTH_TOKEN=abcdefghijklmnopqrstuvwxyz
 
   conduit-echo:
     image: jmalloc/echo-server
+    networks:
+      - private
     environment:
       - PORT=8888

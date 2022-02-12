@@ -10,7 +10,7 @@ if not obj['valid'] then
 end
 
 local payload = obj['payload']
-local clients = ngx.shared.clients
+local tunnels = ngx.shared.tunnels
 
 if payload['username'] == nil then
     ngx.log(ngx.ERR, 'JWT does not contain username')
@@ -21,11 +21,11 @@ if payload['host'] == nil or payload['port'] == nil then
     ngx.exit(400)
 end
 
--- Record client connection info.
+-- Record tunnel connection info.
 local conn = payload['host'] .. ':' .. payload['port']
-ngx.log(ngx.INFO, 'Registering client: ' .. payload['username'] .. ', conn=' .. conn)
+ngx.log(ngx.INFO, 'Registering tunnel: ' .. payload['username'] .. ', conn=' .. conn)
 for i, domain in ipairs(payload['domains']) do
-    clients:set(domain, conn)
+    tunnels:set(domain, conn)
 end
 
 ngx.say('OK')

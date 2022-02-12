@@ -4,6 +4,7 @@ import os
 import logging
 import json
 import time
+import signal
 from pprint import pformat
 from http import client
 from urllib.parse import urlparse
@@ -12,6 +13,7 @@ from pddns import providers
 from pddns.pddns import get_ip
 
 
+CACHE_PATH = os.getenv('CACHE_PATH', '/var/lib/dyndns.cache')
 CONSOLE_AUTH_TOKEN = os.getenv('CONSOLE_AUTH_TOKEN')
 CONSOLE_URL = os.getenv('CONSOLE_URL')
 INTERVAL = int(os.getenv('INTERVAL', '300'))
@@ -27,6 +29,41 @@ PROVIDERS = {
     'hurricane': ('Hurricane Electric', providers.HurricaneElectric),
     'strato': ('Strato', providers.Strato),
 }
+# NOTE: lifted from source code.
+# TODO: refactor this library so version can be imported.
+PDDNS_VERSION = "v2.1.0"
+
+
+def _load_cache():
+    if os.path.getsize(CACHE_PATH) == 0:
+        return {}
+
+    LOGGER.info('Loading cache')
+    try:
+        with open(CACHE_PATH, 'r') as f:
+            cache = json.load(f)
+        LOGGER.debug('Loaded %i items from cache', len(cache))
+        return cache
+
+    except Exception:
+        LOGGER.exception('Error loading cache')
+        return {}
+
+
+def _save_cache(*args):
+    LOGGER.info('Saving cache')
+    try:
+        with open(CACHE_PATH, 'w') as f:
+            json.dump(IP_CACHE, f)
+
+    except Exception:
+        LOGGER.exception('Error saving cache')
+
+    finally:
+        exit(0)
+
+
+IP_CACHE = _load_cache()
 
 
 def request(path, headers=None):
@@ -42,37 +79,47 @@ def request(path, headers=None):
     return json.loads(r.read().decode())['objects']
 
 
-def get_clients():
-    clients, domains = [], request('/api/domains/')
-    for domain in domains:
+def update_dns(ip):
+    for domain in request('/api/domains/'):
+        config = {}
         try:
-            config = {}
-            config_name, klass = PROVIDERS[domain['provider']]
+            provider = domain['provider']
+            config_name, klass = PROVIDERS[provider]
             options = config[config_name] = domain['options']
-            options['Name'] = domain['name']
+            domain_name = options['Name'] = domain['name']
 #            if 'nameservers' in domain:
 #                options['Nameservers'] = domain['Nameservers']
-            clients.append((domain['name'], klass(config, "v2.1.0")))
 
         except Exception:
             LOGGER.exception('Error initializing client: %s', pformat(domain))
+            continue
 
-    return clients
+        if ip == IP_CACHE.get(domain_name):
+            # If the ip has not changed since last run, don't update it.
+            LOGGER.debug(
+                'Skipping: %s, provider=%s, no ip change',
+                domain_name, provider)
+            continue
+
+        LOGGER.info(
+            'Updating: %s, provider=%s', domain_name, provider)
+        try:
+            # NOTE: if ip address is defined, it is a static record, use that
+            # ip rather than the detected one.
+            client_ip = options.get('ip address') or ip
+            klass(config, PDDNS_VERSION).main(client_ip, None)
+            IP_CACHE[domain_name] = ip
+
+        except Exception:
+            LOGGER.exception('Error updating ip.')
+            continue
 
 
 def main():
+    signal.signal(signal.SIGTERM, _save_cache)
     LOGGER.info('Starting dyndns client.')
     while True:
-        try:
-            for domain, client in get_clients():
-                LOGGER.info(
-                    'Updating: %s, provider=%s', domain,
-                    client.__class__.__name__)
-                client.main(get_ip(), None)
-
-        except Exception:
-            LOGGER.exception('Error updating dns records.')
-            pass
+        update_dns(get_ip())
 
         LOGGER.info('Slumbering for %i seconds...', INTERVAL)
         time.sleep(INTERVAL)

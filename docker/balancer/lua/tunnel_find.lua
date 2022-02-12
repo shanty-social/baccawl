@@ -4,12 +4,11 @@ local default = ngx.var.default;
 local host = ngx.req.get_headers()['Host']
 
 -- TODO: hostname configurable...
-local host = host:match('([0-9%a%u-]+).shanty.local')
-local clients = ngx.shared.clients
-local conn = clients:get(host)
+local tunnels = ngx.shared.tunnels
+local conn = tunnels:get(host)
 
 if conn == nil then
-    ngx.log(ngx.ERR, 'Could not lookup client: ' .. host)
+    ngx.log(ngx.ERR, 'Could not lookup tunnel: ' .. host)
     return default
 end
 

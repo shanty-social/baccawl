@@ -13,8 +13,7 @@ while true; do
     DOMAINS=$(curl \
         -H "Authorization: Bearer ${CONSOLE_AUTH_TOKEN}" \
         ${CONSOLE_URL}/api/domains/ \
-            | jq .objects[].name \
-            | tr -d \")
+            | jq --raw-output '.objects[].name')
     if [ ! -z "${DOMAINS}" ]; then
         break
     fi
@@ -35,8 +34,7 @@ if [ ! -f "${SSH_KEY_PATH}" ]; then
             -H "Authorization: Bearer ${CONSOLE_AUTH_TOKEN}" \
             ${CONSOLE_URL}/api/settings/OAUTH_TOKEN_SHANTY/?format=text \
                 | awk -F= ' { print $2 } ' \
-                | jq .access_token \
-                | tr -d \")
+                | jq --raw-output '.access_token')
 
         if [ ! "${ACCESS_TOKEN}" == "" ]; then
             HTTP_STATUS=$(curl -d "{\"key\":\"${PUB_KEY_KEY}\",\"type\":\"${PUB_KEY_TYPE}\"}"\

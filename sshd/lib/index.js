@@ -33,7 +33,10 @@ function start(host, port) {
   });
 
   server.on('connection', (client) => {
-    let username = null;
+    client.username = null;
+    client.domains = null;
+    client.port = null;
+    client.checkedIn = false;
 
     DEBUG('Client connected!');
     client.on('authentication', (ctx) => {
@@ -49,7 +52,7 @@ function start(host, port) {
             .checkKey(ctx)
             .then(() => {
               DEBUG('Accepting key');
-              username = ctx.username;
+              client.username = ctx.username;
               ctx.accept();
             })
             .catch((e) => {
@@ -68,6 +71,10 @@ function start(host, port) {
     })
 
     client.on('request', (accept, reject, name, info) => {
+      if (client.checkedIn) {
+        reject();
+        return;
+      }
       let { bindAddr, bindPort } = info;
 
       DEBUG('Received request: %s, %O', name, info);
@@ -100,26 +107,52 @@ function start(host, port) {
           });
         });
       }).listen(bindPort, bindAddr, () => {
-        const port = server.address().port;
-        DEBUG('Listening at: %s:%i', bindAddr, port);
-
-        DEBUG('Registering with proxy');
-        proxy
-          .add(username, port)
-          .then(() => {
-            client.on('end', () => {
-              proxy
-                .del(username, port)
-                .then(() => DEBUG('Deregistered from proxy'));
-            });
-            accept(port);
+        client.port = server.address().port;
+        DEBUG('Listening at: %s:%i', bindAddr, client.port);
+        proxy.add(client.username, client.port, client.domains)
+          .then((r) => {
+            client.checkedIn = r;
+            accept(client.port);
           })
           .catch((e) => {
-            DEBUG('Error registering with proxy: %O', e);
+            DEBUG('Error checking in: %O', e);
             reject();
             client.end();
           });
       });
+    });
+
+    client.on('session', (accept, reject) => {
+      if (client.checkedIn) {
+        DEBUG('Rejecting session')
+        reject();
+        return;
+      }
+
+      DEBUG('Accepting session')
+      const session = accept();
+      session.on('exec', (_, __, info) => {
+        const cmdParts = info.command.split(' ');
+        if (!cmdParts[0] === 'proxy') {
+          DEBUG('Rejecting command %s', info.command);
+          return;
+        }
+
+        DEBUG('Accepting command %s', info.command);
+        client.domains = cmdParts.slice(1);
+        proxy.add(client.username, client.port, client.domains)
+          .then(r => client.checkedIn = r)
+          .catch((e) => {
+            DEBUG('Error checking in: %O', e);
+            client.end();
+          });
+      });
+    });
+
+    client.on('end', () => {
+      proxy
+        .del(client.username, client.port, client.domains)
+        .then(() => DEBUG('Deregistered from proxy'));
     });
 
     client.on('error', (e) => {
@@ -133,8 +166,8 @@ function start(host, port) {
   });
 
   server.listen(port, host, () => {
-    const addr = server.address();
-    console.log(`Listening at ${addr.address}:${addr.port}`);
+    const { address, port } = server.address();
+    console.log(`Listening at ${address}:${port}`);
   });
 
   console.log('Starting sshd...');

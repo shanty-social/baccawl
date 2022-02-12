@@ -25,7 +25,9 @@ end
 local conn = payload['host'] .. ':' .. payload['port']
 if clients:get(payload['username']) == conn then
     ngx.log(ngx.INFO, 'Deregistering client: ' .. payload['username'] .. ', conn=' .. conn)
-    clients:delete(payload['username'])
+    for i, domain in ipairs(payload['domains']) do
+        clients:delete(domain)
+    end
 else
     ngx.log(ngx.ERR, 'Connection info mismatch')
     ngx.exit(400)

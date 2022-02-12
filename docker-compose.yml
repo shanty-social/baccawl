@@ -95,21 +95,21 @@ services:
       - CONSOLE_AUTH_TOKEN=abcdefghijklmnopqrstuvwxyz
       - PORT=8080
 
-  conduit-ddclient:
-    image: conduit/ddclient
+  conduit-dyndns:
+    image: conduit/dyndns
     build:
-      dockerfile: ./docker/ddclient/Dockerfile
+      dockerfile: ./docker/dyndns/Dockerfile
       context: ./
     networks:
       - private
     extra_hosts:
       - console.local:172.17.0.1
     volumes:
-      - ./docker/ddclient/entrypoint.sh:/entrypoint.sh:ro
-      - ./docker/ddclient/ddclient.conf.tmpl:/etc/ddclient/ddclient.conf.tmpl:ro
+      - ./docker/dyndns/entrypoint.py:/entrypoint.py:ro
     environment:
       - CONSOLE_URL=http://console.local:8008
       - CONSOLE_AUTH_TOKEN=abcdefghijklmnopqrstuvwxyz
+      - LOG_LEVEL=debug
 
   conduit-echo:
     image: jmalloc/echo-server

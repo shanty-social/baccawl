@@ -24,7 +24,9 @@ end
 -- Record client connection info.
 local conn = payload['host'] .. ':' .. payload['port']
 ngx.log(ngx.INFO, 'Registering client: ' .. payload['username'] .. ', conn=' .. conn)
-clients:set(payload['username'], conn)
+for i, domain in ipairs(payload['domains']) do
+    clients:set(domain, conn)
+end
 
 ngx.say('OK')
 ngx.exit(200)

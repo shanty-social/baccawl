@@ -1,8 +1,21 @@
 #!/bin/sh -x
 
 while true; do
-    eval $(curl -H "Authorization: Bearer ${CONSOLE_AUTH_TOKEN}" ${CONSOLE_URL}/api/settings/CONSOLE_UUID/?format=text)
+    eval $(curl \
+        -H "Authorization: Bearer ${CONSOLE_AUTH_TOKEN}" \
+        ${CONSOLE_URL}/api/settings/CONSOLE_UUID/?format=text)
     if [ ! -z "${CONSOLE_UUID}" ]; then
+        break
+    fi
+done
+
+while true; do
+    DOMAINS=$(curl \
+        -H "Authorization: Bearer ${CONSOLE_AUTH_TOKEN}" \
+        ${CONSOLE_URL}/api/domains/ \
+            | jq .objects[].name \
+            | tr -d \")
+    if [ ! -z "${DOMAINS}" ]; then
         break
     fi
 done
@@ -10,7 +23,8 @@ done
 if [ ! -f "${SSH_KEY_PATH}" ]; then
     echo "Generating keys..."
     TMP_KEY=$(mktemp -u)
-    PUB_KEY=$(dropbearkey -t ${SSH_KEY_TYPE} -f ${TMP_KEY} -s 384 | grep "^${SSH_KEY_TYPE}")
+    PUB_KEY=$(dropbearkey -t ${SSH_KEY_TYPE} -f ${TMP_KEY} \
+        -s 384 | grep "^${SSH_KEY_TYPE}")
     PUB_KEY_TYPE=$(echo ${PUB_KEY} | awk ' { print $1 } ')
     PUB_KEY_KEY=$(echo ${PUB_KEY} | awk ' { print $2 } ')
 
@@ -25,7 +39,7 @@ if [ ! -f "${SSH_KEY_PATH}" ]; then
                 | tr -d \")
 
         if [ ! "${ACCESS_TOKEN}" == "" ]; then
-            HTTP_STATUS=$(curl -d "{\"key\":\"${PUB_KEY_KEY}\", \"type\": \"${PUB_KEY_TYPE}\"}"\
+            HTTP_STATUS=$(curl -d "{\"key\":\"${PUB_KEY_KEY}\",\"type\":\"${PUB_KEY_TYPE}\"}"\
                 -H 'Content-Type: application/json' \
                 -H "Authorization: Bearer ${ACCESS_TOKEN}" \
                 --write-out '%{http_code}' --silent --output /dev/null \
@@ -33,7 +47,8 @@ if [ ! -f "${SSH_KEY_PATH}" ]; then
 
             if [ ${HTTP_STATUS} -eq 200 ]; then
                 # Now that the key has been uploaded, save it to the final
-                # location. This ensures we won't regenerate the key next restart.
+                # location. This ensures we won't regenerate the key next
+                # restart.
                 mkdir -p $(dirname ${SSH_KEY_PATH})
                 mv ${TMP_KEY} ${SSH_KEY}
                 break
@@ -48,13 +63,17 @@ fi
 # -i identity file
 # -K keepalive (seconds?)
 # -y accept host key
-# -N don't run a remote command
 # -R remote port forwarding
+
+# We open an ssh connection, and open a remote port to receive HTTP traffic.
+# Also run a command passing the domain list, which is used to identify traffic
+# to be directed through the tcp tunnel.
 
 while true; do
     echo "Starting ssh client..."
-    ssh -TNy -K 300 -i ${SSH_KEY_PATH} -R 0.0.0.0:0:${SSH_FORWARD_HOST}:${SSH_FORWARD_PORT} \
-        ${CONSOLE_UUID}@conduit-sshd/22
+    ssh -Ty -K 300 -i ${SSH_KEY_PATH} \
+        -R 0.0.0.0:0:${SSH_FORWARD_HOST}:${SSH_FORWARD_PORT} \
+        ${CONSOLE_UUID}@conduit-sshd/22 "proxy ${DOMAINS}"
     echo "SSH client died, restarting..."
     sleep 3
 done

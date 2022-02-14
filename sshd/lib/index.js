@@ -4,8 +4,7 @@ const net = require('net');
 const { readFileSync } = require('fs');
 const { Server } = require('ssh2');
 const DEBUG = require('debug')('sshd');
-const proxy = require('./proxy');
-const keys = require('./keys');
+const api = require('./client');
 
 const KEY_DIR = process.env.SSHD_HOST_KEY_DIR;
 const HOST = process.env.SSHD_HOST || '127.0.0.1';
@@ -51,7 +50,7 @@ function start(host, port) {
           return ctx.reject(['publickey']);
   
         case 'publickey':
-          keys
+          api
             .checkKey(ctx)
             .then(() => {
               DEBUG('Accepting key');
@@ -97,7 +96,6 @@ function start(host, port) {
         client.forwardOut(bindAddr, bindPort, addr.address, addr.port, (e, channel) => {
           if (e) {
             DEBUG('Error forwarding: %O', e);
-            //client.end();
             return;
           }
           // Connect client socket and SSH channel.
@@ -112,7 +110,8 @@ function start(host, port) {
       }).listen(bindPort, bindAddr, () => {
         auth.port = server.address().port;
         DEBUG('Listening at: %s:%i', bindAddr, auth.port);
-        proxy.add(auth)
+        api
+          .add(auth)
           .then((r) => {
             auth.checkedIn = r;
             accept(auth.port);
@@ -144,19 +143,23 @@ function start(host, port) {
         DEBUG('Accepting command %s', info.command);
         auth.oauthToken = cmdParts[1];
         auth.domains = cmdParts.slice(2);
-        proxy.add(auth)
+        api
+          .add(auth)
           .then(r => auth.checkedIn = r)
           .catch((e) => {
-            DEBUG('Error checking in: %O', e);
+            DEBUG('Error registering with proxy: %O', e);
             client.end();
           });
       });
     });
 
     client.on('end', () => {
-      proxy
+      api
         .del(auth)
-        .then(() => DEBUG('Deregistered from proxy'));
+        .then(() => DEBUG('Deregistered from proxy'))
+        .catch((e) => {
+          DEBUG('Error deregistering with proxy: %O', e);
+        });
     });
 
     client.on('error', (e) => {

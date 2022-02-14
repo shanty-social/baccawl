@@ -10,9 +10,10 @@ function checkKey(ctx) {
         key: ctx.key.data.toString('base64'),
         type: ctx.key.algo,
       });
-      // TODO: The same key is passed to us twice. Once to verify the key,
-      // then again to verify the signature. We could cache the result of
-      // this API call in order to eliminate one call.
+      // NOTE: The same key is passed to us twice. Once to verify the key,
+      // then again to verify the signature.
+      // TODO: We could cache the result of this API call in order to
+      // eliminate one call.
       const req = http.request({
         method: 'post',
         host: SHANTY_URL.hostname,
@@ -48,6 +49,42 @@ function checkKey(ctx) {
     });
 }
 
+function getDomains(oauthToken) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      method: 'get',
+      host: SHANTY_URL.hostname,
+      port: SHANTY_URL.port,
+      path: '/api/hosts/',
+      headers: {
+        'Authorization': `Bearer ${oauthToken}`,
+      },
+    }, (res) => {
+      let buffer = '';
+
+      if (res.statusCode !== 200) {
+        reject(new Error(`Could not fetch domains, statusCode: ${res.statusCode}`));
+        return;
+      }
+
+      res.on('data', (chunk) => {
+        buffer += chunk;
+      });
+
+      res.on('end', () => {
+        resolve(JSON.parse(buffer));
+      });
+    });
+  
+    req.on('error', (e) => {
+      reject(e);
+    });
+
+    req.end();
+  });
+}
+
 module.exports = {
     checkKey,
-}
+    getDomains,
+};

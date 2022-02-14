@@ -26,16 +26,21 @@ function get_backends()
         },
         sink=ltn12.sink.table(r)
     })
-    local endpoints = cjson.decode(table.concat(r, ''))
 
-    for i, endpoint in ipairs(endpoints['objects']) do
-        local domain_name = endpoint['domain']['name']
-        local paths = backends:get(domain_name)
-        if paths == nil then
-            paths = {}
+    if c != 200 then
+        ngx.log(ngx.ERR, 'Status code ' .. c .. ' refreshing backends')
+    else
+        local endpoints = cjson.decode(table.concat(r, ''))
+
+        for i, endpoint in ipairs(endpoints['objects']) do
+            local domain_name = endpoint['domain']['name']
+            local paths = backends:get(domain_name)
+            if paths == nil then
+                paths = {}
+            end
+            paths[endpoint['path']] = endpoint['host'] .. endpoint['http_port_internal']
+            backends:set(domain_name, paths)
         end
-        paths[endpoint['path']] = endpoint['host'] .. endpoint['http_port_internal']
-        backends:set(domain_name, paths)
     end
 
     ngx.timer.at(REFRESH_INTERVAL, get_backends)

@@ -3,22 +3,53 @@ const { URL } = require('url');
 const DEBUG = require('debug')('sshd:proxy');
 const jwtEncode = require('jwt-encode');
 const localIp = require('local-ip')('eth0');
+const keys = require('./keys');
 
 const JWT_KEY = process.env.JWT_KEY;
 const PROXY_URL = new URL(process.env.PROXY_URL || 'http://conduit-balancer:1337');
 
-function add(username, port, domains) {
-  // NOTE: Need to validate the domains for the user.
-  return new Promise((resolve, reject) => {
+async function verifyDomains(oauthToken, domains) {
+  return new Promise((resolve) => {
+    keys.getDomains(oauthToken)
+    .then((hosts) => {
+      DEBUG('Domains: %O', domains);
+      for (const domain of domains) {
+        if (!hosts.find(o => o.name == domain)) {
+          DEBUG('Invalid domain: %s', domain);
+          resolve(false);
+          return;
+        }
+      }
+      resolve(true);
+    })
+    .catch((e) => {
+      DEBUG('Error fetching domains: %O', e);
+      resolve(false);
+    })
+  });
+}
+
+function add({username, port, domains, oauthToken}) {
+  return new Promise(async (resolve, reject) => {
     if (username === null || port === null || domains === null) {
       resolve(false);
       return;
     }
+
+    const validDomains = await verifyDomains(oauthToken, domains);
+    if (!validDomains) {
+      reject(new Error('Invalid domains'));
+      return;
+    }
+
     const req = http.request({
       method: 'post',
       host: PROXY_URL.hostname,
       port: PROXY_URL.port,
       path: '/add/',
+      headers: {
+        'Authorization': `Bearer ${oauthToken}`,
+      }
     }, (res) => {
       if (res.statusCode !== 200) {
         reject(new Error(`Proxy checkin failed, statusCode: ${res.statusCode}`));
@@ -31,7 +62,6 @@ function add(username, port, domains) {
       reject(e);
     });
 
-    // TODO: make it expire in 30s
     const jwt = jwtEncode({
       username,
       domains,
@@ -46,7 +76,7 @@ function add(username, port, domains) {
   });
 }
 
-function del(username, port, domains) {
+function del({username, port, domains}) {
   return new Promise((resolve, reject) => {
     const req = http.request({
       method: 'post',
@@ -56,16 +86,16 @@ function del(username, port, domains) {
     }, (res) => {
       if (res.statusCode !== 200) {
         DEBUG('Proxy checkout failed');
-        reject(new Error('!200 status code'));
+        resolve();
         return;
       }
       DEBUG('Proxy checkout successful');
-      resolve(port);
+      resolve();
     });
 
     req.on('error', (e) => {
       DEBUG('Proxy checkout error: %O', e);
-      reject(e);
+      resolve();
     });
 
     const jwt = jwtEncode({

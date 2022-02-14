@@ -33,10 +33,13 @@ function start(host, port) {
   });
 
   server.on('connection', (client) => {
-    client.username = null;
-    client.domains = null;
-    client.port = null;
-    client.checkedIn = false;
+    const auth = {
+      username: null,
+      oauthToken: null,
+      domains: null,
+      port: null,
+      checkedIn: false,
+    };
 
     DEBUG('Client connected!');
     client.on('authentication', (ctx) => {
@@ -52,7 +55,7 @@ function start(host, port) {
             .checkKey(ctx)
             .then(() => {
               DEBUG('Accepting key');
-              client.username = ctx.username;
+              auth.username = ctx.username;
               ctx.accept();
             })
             .catch((e) => {
@@ -71,7 +74,7 @@ function start(host, port) {
     })
 
     client.on('request', (accept, reject, name, info) => {
-      if (client.checkedIn) {
+      if (auth.checkedIn) {
         reject();
         return;
       }
@@ -107,12 +110,12 @@ function start(host, port) {
           });
         });
       }).listen(bindPort, bindAddr, () => {
-        client.port = server.address().port;
-        DEBUG('Listening at: %s:%i', bindAddr, client.port);
-        proxy.add(client.username, client.port, client.domains)
+        auth.port = server.address().port;
+        DEBUG('Listening at: %s:%i', bindAddr, auth.port);
+        proxy.add(auth)
           .then((r) => {
-            client.checkedIn = r;
-            accept(client.port);
+            auth.checkedIn = r;
+            accept(auth.port);
           })
           .catch((e) => {
             DEBUG('Error checking in: %O', e);
@@ -123,7 +126,7 @@ function start(host, port) {
     });
 
     client.on('session', (accept, reject) => {
-      if (client.checkedIn) {
+      if (auth.checkedIn) {
         DEBUG('Rejecting session')
         reject();
         return;
@@ -139,9 +142,10 @@ function start(host, port) {
         }
 
         DEBUG('Accepting command %s', info.command);
-        client.domains = cmdParts.slice(1);
-        proxy.add(client.username, client.port, client.domains)
-          .then(r => client.checkedIn = r)
+        auth.oauthToken = cmdParts[1];
+        auth.domains = cmdParts.slice(2);
+        proxy.add(auth)
+          .then(r => auth.checkedIn = r)
           .catch((e) => {
             DEBUG('Error checking in: %O', e);
             client.end();
@@ -151,7 +155,7 @@ function start(host, port) {
 
     client.on('end', () => {
       proxy
-        .del(client.username, client.port, client.domains)
+        .del(auth)
         .then(() => DEBUG('Deregistered from proxy'));
     });
 

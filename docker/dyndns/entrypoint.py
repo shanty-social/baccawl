@@ -80,7 +80,14 @@ def request(path, headers=None):
 
 
 def update_dns(ip):
-    for domain in request('/api/domains/'):
+    try:
+        domains = request('/api/domains/')
+
+    except Exception:
+        LOGGER.exception('Error getting domain list')
+        return
+
+    for domain in domains:
         config = {}
         try:
             provider = domain['provider']

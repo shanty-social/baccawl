@@ -154,12 +154,14 @@ function start(host, port) {
     });
 
     client.on('end', () => {
-      api
+      if (auth.checkedIn) {
+        api
         .del(auth)
         .then(() => DEBUG('Deregistered from proxy'))
         .catch((e) => {
           DEBUG('Error deregistering with proxy: %O', e);
         });
+      }
     });
 
     client.on('error', (e) => {

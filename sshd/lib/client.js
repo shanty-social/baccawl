@@ -97,7 +97,6 @@ function checkKey(ctx) {
       body,
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': body.length,
       },
     })
       .then(() => {

@@ -5,12 +5,13 @@ const DEBUG = require('debug')('sshd:proxy');
 const jwtEncode = require('jwt-encode');
 const localIp = require('local-ip')('eth0');
 
-const JWT_KEY = process.env.JWT_KEY;
+const JWT_KEY = process.env.JWT_KEY || null;
 const PROXY_URL = new URL(process.env.PROXY_URL || 'http://conduit-balancer:1337');
 const SHANTY_URL = new URL(process.env.SHANTY_URL || 'http://www.shanty.social');
 
 async function request(options) {
   return new Promise((resolve, reject) => {
+    // eslint-disable-next-line no-param-reassign
     options.method = options.method || 'get';
 
     DEBUG('request options: %O', options);
@@ -48,7 +49,7 @@ async function request(options) {
     });
 
     if (['post', 'put'].includes(options.method) && options.body) {
-      DEBUG('Writing body for %s request', options.method)
+      DEBUG('Writing body for %s request', options.method);
       req.write(options.body);
     }
 
@@ -73,7 +74,7 @@ async function requestJson(options) {
         if (e.body) {
           try {
             e.body = JSON.parse(e.body);
-          } catch (e) {
+          } catch (jsonError) {
             DEBUG('Failure parsing error response: %O', e.body);
           }
         }
@@ -89,7 +90,7 @@ function checkKey(ctx) {
       type: ctx.key.algo,
     });
 
-    return requestJson({
+    requestJson({
       method: 'post',
       host: SHANTY_URL.hostname,
       port: SHANTY_URL.port,
@@ -121,12 +122,12 @@ async function verifyDomains(oauthToken, domains) {
       port: SHANTY_URL.port,
       path: '/api/hosts/',
       headers: {
-        'Authorization': `Bearer ${oauthToken}`,
+        Authorization: `Bearer ${oauthToken}`,
       },
     })
       .then((json) => {
         for (const domain of domains) {
-          if (!json.find(o => o.name == domain)) {
+          if (!json.find((o) => o.name === domain)) {
             DEBUG('Invalid domain: %s', domain);
             resolve(false);
             return;
@@ -138,47 +139,52 @@ async function verifyDomains(oauthToken, domains) {
   });
 }
 
-function add({username, port, domains, oauthToken}) {
-  return new Promise(async (resolve, reject) => {
+function add({
+  username, port, domains, oauthToken,
+}) {
+  return new Promise((resolve, reject) => {
     if (username === null || port === null || domains === null) {
       resolve(false);
       return;
     }
 
-    const validDomains = await verifyDomains(oauthToken, domains);
-    if (!validDomains) {
-      reject(new Error('Invalid domains'));
-      return;
-    }
+    verifyDomains(oauthToken, domains)
+      .then((r) => {
+        if (!r) {
+          reject(new Error('Invalid domains'));
+          return;
+        }
 
-    const body = jwtEncode({
-      username,
-      domains,
-      host: localIp,
-      port: port,
-      iat: Date.now() / 1000,
-      exp: (Date.now() / 1000) + 30000,
-    }, JWT_KEY);
+        const body = jwtEncode({
+          username,
+          domains,
+          host: localIp,
+          port,
+          iat: Date.now() / 1000,
+          exp: (Date.now() / 1000) + 30000,
+        }, JWT_KEY);
 
-    request({
-      method: 'post',
-      host: PROXY_URL.hostname,
-      port: PROXY_URL.port,
-      path: '/add/',
-      body,
-    })
-      .then(() => resolve(true))
+        request({
+          method: 'post',
+          host: PROXY_URL.hostname,
+          port: PROXY_URL.port,
+          path: '/add/',
+          body,
+        })
+          .then(() => resolve(true))
+          .catch(reject);
+      })
       .catch(reject);
   });
 }
 
-function del({username, port, domains}) {
+function del({ username, port, domains }) {
   return new Promise((resolve, reject) => {
     const body = jwtEncode({
       username,
       domains,
       host: localIp,
-      port: port,
+      port,
       iat: Date.now() / 1000,
       exp: (Date.now() / 1000) + 30000,
     }, JWT_KEY);
@@ -199,4 +205,4 @@ module.exports = {
   add,
   del,
   checkKey,
-}
+};

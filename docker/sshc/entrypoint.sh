@@ -9,6 +9,7 @@ while true; do
     if [ ! -z "${CONSOLE_UUID}" ]; then
         break
     fi
+    sleep 16
 done
 
 while true; do
@@ -19,6 +20,7 @@ while true; do
     if [ ! -z "${DOMAINS}" ]; then
         break
     fi
+    sleep 16
 done
 
 while true; do
@@ -31,6 +33,7 @@ while true; do
     if [ ! -z "${ACCESS_TOKEN}" ]; then
         break
     fi
+    sleep 16
 done
 
 if [ ! -f "${SSH_KEY_PATH}" ]; then

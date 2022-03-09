@@ -1,4 +1,4 @@
-const fs = require('fs')
+const fs = require('fs');
 const http = require('http');
 const { URL } = require('url');
 const { utils: { parseKey } } = require('ssh2');
@@ -18,7 +18,6 @@ try {
   console.error(e);
   process.exit(1);
 }
-
 
 async function request(options) {
   return new Promise((resolve, reject) => {

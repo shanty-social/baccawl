@@ -1,3 +1,4 @@
+const fs = require('fs')
 const http = require('http');
 const { URL } = require('url');
 const { utils: { parseKey } } = require('ssh2');
@@ -5,9 +6,19 @@ const DEBUG = require('debug')('sshd:proxy');
 const jwtEncode = require('jwt-encode');
 const localIp = require('local-ip')('eth0');
 
-const JWT_KEY = process.env.JWT_KEY || null;
+const JWT_KEY_FILE = process.env.JWT_KEY_FILE || '/run/secrets/shanty_jwt_key';
 const PROXY_URL = new URL(process.env.PROXY_URL || 'http://conduit-balancer:1337');
 const SHANTY_URL = new URL(process.env.SHANTY_URL || 'http://www.shanty.social');
+
+let JWT_KEY = null;
+try {
+  JWT_KEY = fs.readFileSync(JWT_KEY_FILE);
+} catch (e) {
+  console.error('Error reading JWT key from: ', JWT_KEY_FILE);
+  console.error(e);
+  process.exit(1);
+}
+
 
 async function request(options) {
   return new Promise((resolve, reject) => {

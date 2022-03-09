@@ -17,6 +17,7 @@ services:
       context: ./
     volumes:
       - ./docker/sshd/entrypoint.sh:/entrypoint.sh:ro
+      - ./docker/balancer/shanty_jwt_key:/var/tmp/shanty_jwt_key:ro
       - ./sshd:/app:ro
       - ssh-keys:/etc/sshd/keys
     networks:
@@ -30,7 +31,7 @@ services:
       - SSHD_HOST=0.0.0.0
       - SSHD_PORT=22
       - PROXY_URL=http://conduit-balancer:1337
-      - JWT_KEY=supersecret
+      - JWT_KEY_FILE=/var/tmp/shanty_jwt_key
       - SHANTY_URL=http://www.shanty.local:8000
 
   conduit-sshc:
@@ -66,7 +67,8 @@ services:
       dockerfile: ./docker/balancer/Dockerfile
       context: ./
     volumes:
-      - ./docker/balancer/lua:/app:ro
+      - ./docker/balancer/shanty_jwt_key:/var/tmp/shanty_jwt_key:ro
+      - ./docker/balancer/lua/proxy.lua:/usr/local/openresty/lualib/proxy.lua:ro
       - ./docker/balancer/conf.d:/etc/nginx/conf.d:ro
       - ./docker/balancer/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
     networks:
@@ -77,7 +79,7 @@ services:
       - 10080:80
       - 10443:443
     environment:
-      - JWT_KEY=supersecret
+      - JWT_KEY_FILE=/var/tmp/shanty_jwt_key
 
   conduit-reverse:
     image: conduit/reverse
@@ -86,7 +88,7 @@ services:
       context: ./
     volumes:
       - /tmp/certs:/var/lib/certs:ro
-      - ./docker/reverse/lua:/app:ro
+      - ./docker/reverse/lua/backend.lua:/usr/local/openresty/lualib/backend.lua:ro
       - ./docker/reverse/conf.d:/etc/nginx/conf.d:ro
       - ./docker/reverse/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
     networks:

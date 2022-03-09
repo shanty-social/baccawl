@@ -1,6 +1,11 @@
 DOCKER_COMPOSE = docker-compose
 
 
+.PHONY: shared
+shared:
+	-${DOCKER} network create --subnet=192.168.100.0/24 --ip-range=192.168.100.0/25 --gateway=192.168.100.254 shared
+
+
 .PHONY: sysdeps
 sysdeps:
 	sudo apt-get install qemu binfmt-support qemu-user-static
@@ -17,18 +22,18 @@ build:
 
 
 .PHONY: run
-run:
-	${DOCKER_COMPOSE} up --scale server=3
+run: shared
+	${DOCKER_COMPOSE} up --remove-orphans --scale ssdh=2
 
 
 .PHONY: test
 test:
-	${MAKE} -C proxy test
+	${MAKE} -C sshd test
 
 
 .PHONY: lint
 lint:
-	${MAKE} -C proxy lint
+	${MAKE} -C sshd lint
 
 
 .PHONY: ci
@@ -39,3 +44,8 @@ ci: test lint
 load: deps
 	xdg-open http://0.0.0.0:8089
 	pipenv run locust --host=http://test_host.shanty.local:8080/
+
+
+.PHONY: clean
+clean:
+	${DOCKER_COMPOSE} rm --force

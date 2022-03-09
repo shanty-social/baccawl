@@ -1,0 +1,33 @@
+{
+  "name": "sshd",
+  "version": "0.7.0",
+  "description": "SSH server to support tunneling HTTP.",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha tests/**/test_*",
+    "lint": "eslint --format node_modules/eslint-friendly-formatter .",
+    "start": "node lib/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shanty-social/baccawl/sshd"
+  },
+  "author": "Ben Timby <btimby@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "debug": "^4.3.3",
+    "jwt-encode": "^1.0.1",
+    "local-ip": "^2.0.0",
+    "nodemon": "^2.0.15",
+    "ssh2": "^1.5.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.6.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-friendly-formatter": "^4.0.1",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-mocha": "^10.0.3",
+    "eslint-plugin-node": "^11.1.0",
+    "mocha": "^9.1.3"
+  }
+}

@@ -1,7 +1,9 @@
-node_modules: package.json
+node_modules: package-lock.json
 	npm i --dev
+	touch node_modules
 
 
+.PHONY: deps
 deps: node_modules
 
 
@@ -11,9 +13,5 @@ test: deps
 
 
 .PHONY: lint
-lint:
+lint: deps
 	npm run lint
-
-
-.PHONY: ci
-ci: test lint

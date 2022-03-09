@@ -18,8 +18,6 @@ jobs:
 
       - name: Test & lint
         run: |
-          sudo apt install -y build-essential
-          sudo npm i -g node-pre-gyp
           make ci
 
       - name: Create tag
@@ -37,23 +35,45 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: build and push server
+      - name: build and push sshd
         run: |
-          docker buildx build -f docker/proxy/Dockerfile \
+          docker buildx build -f docker/sshd/Dockerfile \
             --push \
-            --target server \
-            --tag ${{secrets.DOCKER_USER}}/baccawl-server:latest \
-            --tag ${{secrets.DOCKER_USER}}/baccawl-server:${{env.tag}} \
+            --tag ${{secrets.DOCKER_USER}}/conduit-sshd:latest \
+            --tag ${{secrets.DOCKER_USER}}/conduit-sshd:${{env.tag}} \
             --platform linux/amd64 .
 
-      - name: build and push client
+      - name: build and push sshc
         run: |
-          docker buildx build -f docker/proxy/Dockerfile \
+          docker buildx build -f docker/sshc/Dockerfile \
             --push \
-            --target client \
-            --tag ${{secrets.DOCKER_USER}}/baccawl-client:latest \
-            --tag ${{secrets.DOCKER_USER}}/baccawl-client:${{env.tag}} \
+            --tag ${{secrets.DOCKER_USER}}/conduit-sshc:latest \
+            --tag ${{secrets.DOCKER_USER}}/conduit-sshc:${{env.tag}} \
             --platform linux/amd64,linux/arm/v7,linux/arm64 .
+
+      - name: build and push balancer
+        run: |
+          docker buildx build -f docker/balancer/Dockerfile \
+            --push \
+            --tag ${{secrets.DOCKER_USER}}/conduit-balancer:latest \
+            --tag ${{secrets.DOCKER_USER}}/conduit-balancer:${{env.tag}} \
+            --platform linux/amd64 .
+
+      - name: build and push dyndns
+        run: |
+          docker buildx build -f docker/dyndns/Dockerfile \
+            --push \
+            --tag ${{secrets.DOCKER_USER}}/conduit-dyndns:latest \
+            --tag ${{secrets.DOCKER_USER}}/conduit-dyndns:${{env.tag}} \
+            --platform linux/amd64 .
+
+      - name: build and push reverse
+        run: |
+          docker buildx build -f docker/reverse/Dockerfile \
+            --push \
+            --tag ${{secrets.DOCKER_USER}}/conduit-reverse:latest \
+            --tag ${{secrets.DOCKER_USER}}/conduit-reverse:${{env.tag}} \
+            --platform linux/amd64 .
 
       - name: Docker Hub Description
         uses: peter-evans/dockerhub-description@v2
@@ -67,4 +87,4 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASSWORD_ }}
-          repository: shantysocial/baccawl-server
+          repository: shantysocial/baccawl-sshd

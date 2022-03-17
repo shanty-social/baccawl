@@ -1,11 +1,13 @@
-FROM ${ARCH}alpine:3.15
+FROM python:3-alpine3.15
 
+ADD ./sshc /app
 ADD ./docker/sshc/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-ENV SSH_KEY_PATH=/etc/ssh/keys/id_ecdsa
-ENV SSH_KEY_TYPE=ecdsa
-
-RUN apk add --no-cache jq curl dropbear dropbear-ssh
+WORKDIR /app
+RUN apk add --no-cache py3-pip build-base libffi libffi-dev && \
+    pip3 install pipenv && \
+    pipenv install --system --skip-lock && \
+    apk del build-base libffi-dev
 
 ENTRYPOINT [ "/entrypoint.sh" ]

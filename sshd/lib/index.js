@@ -35,8 +35,7 @@ function start(host, port) {
   server.on('connection', (client) => {
     const auth = {
       username: null,
-      oauthToken: null,
-      domains: null,
+      domain: null,
       port: null,
       checkedIn: false,
     };
@@ -61,7 +60,7 @@ function start(host, port) {
             })
             .catch((e) => {
               DEBUG('Rejecting key: %O', e);
-              ctx.reject();
+              ctx.reject(['publickey']);
             });
           break;
 
@@ -137,15 +136,14 @@ function start(host, port) {
       const session = accept();
       session.on('exec', (_, __, info) => {
         const cmdParts = info.command.split(' ');
-        if (!cmdParts[0] === 'proxy') {
+        if (!cmdParts[0] === 'tunnel') {
           DEBUG('Rejecting command %s', info.command);
           return;
         }
 
         DEBUG('Accepting command %s', info.command);
         // eslint-disable-next-line prefer-destructuring
-        auth.oauthToken = cmdParts[1];
-        auth.domains = cmdParts.slice(2);
+        auth.domain = cmdParts[1];
         api
           .add(auth)
           .then((r) => {
@@ -161,7 +159,7 @@ function start(host, port) {
     client.on('end', () => {
       if (auth.checkedIn) {
         api
-          .del(auth)
+          .del(auth.domain)
           .then(() => DEBUG('Deregistered from proxy'))
           .catch((e) => {
             DEBUG('Error deregistering with proxy: %O', e);

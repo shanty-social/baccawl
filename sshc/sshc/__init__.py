@@ -11,14 +11,14 @@ import paramiko
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
-CONDUIT_HOST = os.getenv('CONDUIT_HOST', 'homeland-social.com')
-CONDUIT_PORT = int(os.getenv('CONDUIT_PORT', 2222))
+SSH_HOST = os.getenv('SSH_HOST', 'homeland-social.com')
+SSH_PORT = int(os.getenv('SSH_PORT', 2222))
 BUFFER_SIZE = 1024**2
-
+DISABLED_ALGORITHMS = dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"])
 
 def gen_key():
     "Generate a client key for use with the library."
-    pass
+    return paramiko.RSAKey.generate(2048)
 
 
 class Connection:
@@ -83,7 +83,7 @@ class Tunnel:
         self._remote_port = transport.request_port_forward(
             '0.0.0.0', 0, self._handle_connection)
         try:
-            ssh.exec_command(f'open {self.hostname} {self.port}')
+            ssh.exec_command(f'tunnel {self.hostname}')
 
         except Exception as e:
             LOGGER.exception('error finalizing tunnel')
@@ -110,7 +110,7 @@ class Tunnel:
 class SSHC:
     _check_interval = 30
 
-    def __init__(self, uuid, key, host=CONDUIT_HOST, port=CONDUIT_PORT):
+    def __init__(self, uuid, key, host=SSH_HOST, port=SSH_PORT):
         self._ssh = None
         self._uuid = uuid
         self._key = key
@@ -127,13 +127,21 @@ class SSHC:
     def _connect(self):
         if self._ssh is not None:
             return
-        LOGGER.debug('Establishing ssh connection')
+        LOGGER.debug(
+            'Establishing ssh connection to: %s:%i', self._host, self._port)
         self._ssh = paramiko.SSHClient()
         self._ssh.set_missing_host_key_policy(paramiko.WarningPolicy())
-        self._ssh.connect(
-            hostname=self._host, port=self._port, username=self._uuid,
-            pkey=self._key, look_for_keys=False
-        )
+        try:
+            self._ssh.connect(
+                hostname=self._host, port=self._port, username=self._uuid,
+                pkey=self._key, look_for_keys=False,
+                disabled_algorithms=DISABLED_ALGORITHMS
+            )
+
+        except paramiko.SSHException:
+            self._ssh = None
+            raise
+
         LOGGER.debug('Established ssh connection')
 
     def _disconnect(self):
@@ -189,3 +197,6 @@ class SSHC:
 
     def stop(self):
         self._stop = True
+
+    def join(self):
+        self._manager.join()

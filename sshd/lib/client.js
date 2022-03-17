@@ -2,22 +2,17 @@ const fs = require('fs');
 const http = require('http');
 const { URL } = require('url');
 const { utils: { parseKey } } = require('ssh2');
+const { createClient } = require('redis');
 const DEBUG = require('debug')('sshd:proxy');
-const jwtEncode = require('jwt-encode');
 const localIp = require('local-ip')('eth0');
 
-const JWT_KEY_FILE = process.env.JWT_KEY_FILE || '/run/secrets/shanty_jwt_key';
-const PROXY_URL = new URL(process.env.PROXY_URL || 'http://conduit-balancer:1337');
+const REDIS_KEY = process.env.REDIS_KEY || 'sshd:endpoints';
+const REDIS_HOST = process.env.REDIS_HOST || 'redis';
+const REDIS_PORT = parseInt(process.env.REDIS_PORT || 6379, 10);
 const SHANTY_URL = new URL(process.env.SHANTY_URL || 'http://www.shanty.social');
 
-let JWT_KEY = null;
-try {
-  JWT_KEY = fs.readFileSync(JWT_KEY_FILE);
-} catch (e) {
-  console.error('Error reading JWT key from: ', JWT_KEY_FILE);
-  console.error(e);
-  process.exit(1);
-}
+const REDIS = createClient({url: `redis://${REDIS_HOST}:${REDIS_PORT}`});
+REDIS.connect();
 
 async function request(options) {
   return new Promise((resolve, reject) => {
@@ -100,7 +95,7 @@ function checkKey(ctx) {
       type: ctx.key.algo,
     });
 
-    requestJson({
+    request({
       method: 'post',
       host: SHANTY_URL.hostname,
       port: SHANTY_URL.port,
@@ -124,90 +119,57 @@ function checkKey(ctx) {
   });
 }
 
-async function verifyDomains(oauthToken, domains) {
+async function verifyDomains(username, domain) {
   return new Promise((resolve, reject) => {
-    requestJson({
-      method: 'get',
+    const body = JSON.stringify({
+      uuid: username,
+      domain,
+    });
+    request({
+      method: 'post',
       host: SHANTY_URL.hostname,
       port: SHANTY_URL.port,
-      path: '/api/hosts/',
+      path: '/api/hosts/verify/',
+      body,
       headers: {
-        Authorization: `Bearer ${oauthToken}`,
+        'Content-Type': 'application/json',
       },
     })
-      .then((json) => {
-        for (const domain of domains) {
-          if (!json.find((o) => o.name === domain)) {
-            DEBUG('Invalid domain: %s', domain);
-            resolve(false);
-            return;
-          }
-        }
-        resolve(true);
-      })
+      .then(() => resolve(true))
       .catch(reject);
   });
 }
 
-function add({
-  username, port, domains, oauthToken,
-}) {
+function add({ username, domain, port }) {
   return new Promise((resolve, reject) => {
-    if (username === null || port === null || domains === null) {
+    if (username === null || domain === null || port === null) {
       resolve(false);
       return;
     }
 
-    verifyDomains(oauthToken, domains)
+    verifyDomains(username, domain)
       .then((r) => {
         if (!r) {
-          reject(new Error('Invalid domains'));
+          reject(new Error('Invalid domain'));
           return;
         }
 
-        const body = jwtEncode({
-          username,
-          domains,
-          host: localIp,
-          port,
-          iat: Date.now() / 1000,
-          exp: (Date.now() / 1000) + 30000,
-        }, JWT_KEY);
-
-        request({
-          method: 'post',
-          host: PROXY_URL.hostname,
-          port: PROXY_URL.port,
-          path: '/add/',
-          body,
-        })
+        const endpoint = `${localIp}:${port}`;
+        REDIS
+          .hSet(REDIS_KEY, domain, endpoint)
           .then(() => resolve(true))
-          .catch(reject);
+          .catch(reject)
       })
       .catch(reject);
   });
 }
 
-function del({ username, port, domains }) {
+function del(domain) {
   return new Promise((resolve, reject) => {
-    const body = jwtEncode({
-      username,
-      domains,
-      host: localIp,
-      port,
-      iat: Date.now() / 1000,
-      exp: (Date.now() / 1000) + 30000,
-    }, JWT_KEY);
-
-    request({
-      method: 'post',
-      host: PROXY_URL.hostname,
-      port: PROXY_URL.port,
-      path: '/del/',
-      body,
-    })
+    REDIS
+      .hDel(REDIS_KEY, domain)
       .then(() => resolve(true))
-      .catch(reject);
+      .catch(reject)
   });
 }
 

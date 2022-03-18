@@ -1,0 +1,181 @@
+const fs = require('fs');
+const pathlib = require('path');
+const { readFileSync } = require('fs');
+const { EventEmitter } = require('events');
+const { Server } = require('ssh2');
+const DEBUG = require('debug')('sshd:server');
+const { verifyDomain, checkKey } = require('./client');
+
+const KEY_DIR = process.env.SSHD_HOST_KEY_DIR;
+
+function readServerKeys() {
+  const keys = [];
+  const paths = fs.readdirSync(KEY_DIR);
+
+  for (const path of paths) {
+    if (!path.startsWith('ssh_host') || path.endsWith('.pub')) {
+      DEBUG('Skipping non-key file %s', path);
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    DEBUG('Loading key %s', path);
+    keys.push(readFileSync(pathlib.join(KEY_DIR, path)));
+  }
+
+  return keys;
+}
+
+function clientAuthenticationHandler(ctx, clientInfo) {
+  DEBUG('Authenticating with %s', ctx.method);
+
+  switch (ctx.method) {
+    case 'password':
+      DEBUG('Rejecting password');
+      ctx.reject(['publickey']);
+      break;
+
+    case 'publickey':
+      checkKey(ctx)
+        .then(() => {
+          DEBUG('Accepting key');
+          clientInfo.username = ctx.username;
+          ctx.accept();
+        })
+        .catch((e) => {
+          DEBUG('Rejecting key: %O', e);
+          ctx.reject(['publickey']);
+        });
+      break;
+
+    default:
+      ctx.reject(['publickey']);
+  }
+}
+
+function clientPortRequestHandler(ctx, clientInfo) {
+  DEBUG('Received request: %s, %O', ctx.name, ctx.info);
+
+  const { bindAddr, bindPort } = ctx.info;
+  if (ctx.name !== 'tcpip-forward' || bindPort !== 0) {
+    DEBUG('Request rejected');
+    ctx.reject();
+    return;
+  }
+
+  DEBUG('TCP forwarding request received');
+
+  // Client needs a port between 1 and 65534. We use it only to match up the
+  // exec request that we expect to come directly.
+  bindPort = Math.round(Math.random() * 65533) + 1;
+  clientInfo.tunnels.push({
+    bindAddr,
+    bindPort,
+    client,
+    domain: null,
+  });
+
+  ctx.accept(bindPort);
+}
+
+function clientSessionHandler(accept, reject, emitter, clientInfo) {
+  DEBUG('Accepting session');
+  const session = accept();
+
+  session.on('exec', (acceptCommand, rejectCommand, info) => {
+    const cmdParts = info.command.split(' ');
+    if (!cmdParts[0] === 'tunnel') {
+      DEBUG('Rejecting command %s', info.command);
+      rejectCommand();
+      return;
+    }
+
+    let bindPort, tunnelInfo;
+    try {
+      bindPort = parseInt(cmdParts[2], 10);
+      tunnelInfo = clientInfo.tunnels.find((o) => o.bindPort = bindPort);
+    } catch(e) {
+      DEBUG('Command format error: %O', e);
+      rejectCommand();
+      return;
+    }
+
+    const domain = cmdParts[1];
+    verifyDomain(clientInfo.username, domain)
+      .then(() => {
+        DEBUG('Accepting command %s', info.command);
+        tunnelInfo.domain = domain;
+        emitter.emit('tunnel:open', tunnelInfo);
+        acceptCommand();
+      })
+      .catch((e) => {
+        DEBUG('Invalid domain: %s, %s', clientInfo.username, domain);
+        DEBUG('%O', e);
+        rejectCommand();
+      });
+  });
+}
+
+function clientEndHandler(emitter, clientInfo) {
+  if (!clientInfo.tunnels || !clientInfo.tunnels.length) {
+    return;
+  }
+
+  for (tunnelInfo of clientInfo.tunnels) {
+    try {
+      emitter.emit('tunnel:close', tunnelInfo);
+    } catch (e) {
+      DEBUG('Error in tunnel:close handler: %O', e);
+    }
+  }
+}
+
+function createConnectionHandler(emitter) {
+  return (client) => {
+    DEBUG('Client connected!');
+
+    const clientInfo = {
+      username: null,
+      tunnels: [],
+    };
+
+    client
+      .on('authentication', (ctx) => {
+        clientAuthenticationHandler(ctx, clientInfo);
+      })
+      .on('ready', () => DEBUG('Client authenticated!'))
+      .on('request', (accept, reject, name, info) => {
+        clientPortRequestHandler({ accept, reject, name, info }, clientInfo)
+      })
+      .on('session', (accept, reject) => {
+        clientSessionHandler(accept, reject, emitter, clientInfo)
+      })
+      .on('end', () => clientEndHandler(emitter, clientInfo))
+      .on('error', (e) => {
+        DEBUG('Client error: %O', e);
+        client.end();
+      })
+      .on('close', () => DEBUG('Client disconnected'));
+  };
+}
+
+function start(port, host) {
+  const emitter = new EventEmitter();
+  const handler = createConnectionHandler(emitter);
+
+  const s = new Server({
+    hostKeys: readServerKeys(),
+  });
+
+  s
+    .on('connection', handler)
+    .listen(port, host, () => {
+      const addr = s.address();
+      DEBUG('SSH server listening at %s:%i', addr.address, addr.port);
+    });
+
+  return emitter;
+}
+
+module.exports = {
+  start,
+};

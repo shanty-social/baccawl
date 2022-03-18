@@ -1,18 +1,9 @@
-const fs = require('fs');
 const http = require('http');
 const { URL } = require('url');
 const { utils: { parseKey } } = require('ssh2');
-const { createClient } = require('redis');
-const DEBUG = require('debug')('sshd:proxy');
-const localIp = require('local-ip')('eth0');
+const DEBUG = require('debug')('sshd:client');
 
-const REDIS_KEY = process.env.REDIS_KEY || 'sshd:endpoints';
-const REDIS_HOST = process.env.REDIS_HOST || 'redis';
-const REDIS_PORT = parseInt(process.env.REDIS_PORT || 6379, 10);
 const SHANTY_URL = new URL(process.env.SHANTY_URL || 'http://www.shanty.social');
-
-const REDIS = createClient({url: `redis://${REDIS_HOST}:${REDIS_PORT}`});
-REDIS.connect();
 
 async function request(options) {
   return new Promise((resolve, reject) => {
@@ -62,32 +53,6 @@ async function request(options) {
   });
 }
 
-async function requestJson(options) {
-  return new Promise((resolve, reject) => {
-    request(options)
-      .then((res) => {
-        try {
-          res.body = JSON.parse(res.body);
-        } catch (e) {
-          DEBUG('Failure parsing response: %O', res.body);
-          reject(e);
-          return;
-        }
-        resolve(res.body);
-      })
-      .catch((e) => {
-        if (e.body) {
-          try {
-            e.body = JSON.parse(e.body);
-          } catch (jsonError) {
-            DEBUG('Failure parsing error response: %O', e.body);
-          }
-        }
-        reject(e);
-      });
-  });
-}
-
 function checkKey(ctx) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
@@ -119,7 +84,7 @@ function checkKey(ctx) {
   });
 }
 
-async function verifyDomains(username, domain) {
+async function verifyDomain(username, domain) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
       uuid: username,
@@ -140,41 +105,7 @@ async function verifyDomains(username, domain) {
   });
 }
 
-function add({ username, domain, port }) {
-  return new Promise((resolve, reject) => {
-    if (username === null || domain === null || port === null) {
-      resolve(false);
-      return;
-    }
-
-    verifyDomains(username, domain)
-      .then((r) => {
-        if (!r) {
-          reject(new Error('Invalid domain'));
-          return;
-        }
-
-        const endpoint = `${localIp}:${port}`;
-        REDIS
-          .hSet(REDIS_KEY, domain, endpoint)
-          .then(() => resolve(true))
-          .catch(reject)
-      })
-      .catch(reject);
-  });
-}
-
-function del(domain) {
-  return new Promise((resolve, reject) => {
-    REDIS
-      .hDel(REDIS_KEY, domain)
-      .then(() => resolve(true))
-      .catch(reject)
-  });
-}
-
 module.exports = {
-  add,
-  del,
   checkKey,
+  verifyDomain,
 };

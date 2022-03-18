@@ -5,6 +5,8 @@ local TUNNELS_MAP = os.getenv('TUNNELS_MAP') or '/usr/local/etc/haproxy/tunnels.
 
 -- Good reference:
 -- http://www.arpalert.org/src/haproxy-lua-api/2.6/index.html
+-- LUA fiddle:
+-- https://www.lua.org/cgi-bin/demo
 
 function split(s, sep)
     if sep == nil then
@@ -19,13 +21,14 @@ end
 
 local function fetch_tunnels(addr)
     local addr_p = split(addr, ':')
+    core.Debug('Connected to: ' .. addr)
+
     local s = core.tcp()
     s:connect(addr_p[1], tonumber(addr_p[2]))
-    core.Debug('Connected to: ' .. host)
     local r = s:receive('*a')
     core.Debug('Read ' .. string.len(r) .. ' bytes')
     s:close()
-    return split('\n')
+    return split(r, '\n')
 end
 
 function update_tunnels()

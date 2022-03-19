@@ -83,6 +83,7 @@ function parseProxyHeader(buffer) {
 
 function createHandler(domains, emitter) {
   return (c) => {
+    c.on('error', (e) => DEBUG('Error handling user http request: %O', e));
     c.once('data', (buffer) => {
       c.pause();
 

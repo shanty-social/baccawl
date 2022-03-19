@@ -53,7 +53,7 @@ local function update_server_tunnels(addr)
     local tunnels = fetch_tunnels(host .. ':1337')
 
     if tunnels == nil then
-        core.Debug('No tunnels, skipping server...')
+        core.Debug('No tunnels, skipping server')
         return
     end
 
@@ -72,7 +72,7 @@ local function update_tunnels()
     core.msleep(5000)
 
     while true do
-        core.Debug('Updating tunnel map.\n')
+        core.Debug('Updating tunnel map')
 
         local backend = core.backends[SSHD_BACKEND]
         if backend ~= nil then

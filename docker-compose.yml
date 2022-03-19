@@ -20,17 +20,19 @@ services:
       - ./sshd:/app:ro
       - ssh-keys:/etc/sshd/keys
     networks:
-      shared:
-      private:
-        ipv4_address: 172.25.0.200
+      - shared
+      - private
+    extra_hosts:
+      - shanty.local:192.168.100.200
     environment:
       - DEBUG=sshd*
+      - AUTORELOAD=true
       - SSHD_HOST_KEY_DIR=/etc/sshd/keys/
       - SSHD_HOST=0.0.0.0
       - SSHD_PORT=22
       - PROXY_PORT=0.0.0.0
       - PROXY_PORT=10088
-      - SHANTY_URL=http://conduit-echo:10088
+      - SHANTY_URL=http://shanty.local:8000
       - HAPROXY_HOSTS=conduit-haproxy:9999
 
   conduit-sshc:
@@ -40,8 +42,9 @@ services:
       context: ./
     command: twotube.com:conduit-echo:10088 bistro2.farley.org:conduit-echo:10088
     volumes:
-      - ./sshc/:/app:ro
+      - ./sshc:/app:ro
       - ./docker/sshc/entrypoint.py:/entrypoint.py:ro
+      - ./docker/sshc/console.key:/etc/sshc/console.key:ro
     depends_on:
       - conduit-sshd
     networks:
@@ -53,6 +56,8 @@ services:
     environment:
       - SSH_HOST=conduit-haproxy
       - SSH_PORT=2222
+      - SSH_USER=0ac99280-5233-47d1-a43b-b02379e832d0
+      - SSH_KEY=/etc/sshc/console.key
       - LOG_LEVEL=debug
 
   conduit-haproxy:

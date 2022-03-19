@@ -16,5 +16,12 @@ if [ ! -f "${SSHD_HOST_KEY_DIR}/ssh_host_ecdsa_key" ]; then
     ssh-keygen -f ${SSHD_HOST_KEY_DIR}/ssh_host_ecdsa_key -N '' -t ecdsa
 fi
 
+if [ "${AUTORELOAD}" == "yes" ] || [ "${AUTORELOAD}" == "true" ]; then
+    CMD=node_modules/.bin/nodemon
+else
+    CMD=node
+fi
+
 cd /app
-node_modules/.bin/nodemon lib/index.js
+
+${CMD} lib/index.js

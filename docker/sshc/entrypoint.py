@@ -1,11 +1,14 @@
-#!/usr/bin/env python3
+#!/usr/local/bin/jurigged -v
+
+import sys
+sys.path.append('/app')
 
 import os
-import sys
+import time
 import logging
-import uuid
 
-sys.path.append('/app')
+import paramiko
+
 import sshc
 
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'DEBUG').upper()
@@ -29,11 +32,12 @@ def _parse_args(args):
 
 
 def main(tunnels):
-    key = sshc.gen_key()
-    client = sshc.SSHC(str(uuid.uuid4()), key)
     for tunnel in tunnels:
-        client.add_tunnel(*tunnel)
-    client.join()
+        sshc.add_tunnel(*tunnel)
+
+    while True:
+        sshc.poll()
+        time.sleep(30)
 
 
 main(_parse_args(sys.argv[1:]))

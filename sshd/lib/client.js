@@ -64,7 +64,7 @@ function checkKey(ctx) {
       method: 'post',
       host: SHANTY_URL.hostname,
       port: SHANTY_URL.port,
-      path: `/api/sshkeys/${ctx.username}/verify/`,
+      path: `/api/consoles/${ctx.username}/verify_key/`,
       body,
       headers: {
         'Content-Type': 'application/json',
@@ -87,14 +87,13 @@ function checkKey(ctx) {
 async function verifyDomain(username, domain) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
-      uuid: username,
       domain,
     });
     request({
       method: 'post',
       host: SHANTY_URL.hostname,
       port: SHANTY_URL.port,
-      path: '/api/hosts/verify/',
+      path: `/api/consoles/${username}/verify_host/`,
       body,
       headers: {
         'Content-Type': 'application/json',

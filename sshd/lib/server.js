@@ -82,8 +82,10 @@ function clientSessionHandler(accept, reject, emitter, clientInfo) {
   DEBUG('Accepting session');
   const session = accept();
 
+  session.on('error', (e) => DEBUG('Error in session: %O', e));
   session.on('exec', (acceptCommand, rejectCommand, info) => {
     const cmdParts = info.command.split(' ');
+
     if (!cmdParts[0] === 'tunnel') {
       DEBUG('Rejecting command %s', info.command);
       rejectCommand();

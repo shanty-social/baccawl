@@ -14,6 +14,7 @@ async function send(host, port, msg) {
     const c = net.createConnection({ port, host }, () => {
       c.write(msg);
     });
+    c.on('error', (e) => DEBUG('Error providing domain list: %O', e));
     c.on('data', (buffer) => {
       buffer = buffer.toString().replace(/(\r\n|\n|\r)/gm, "");
       DEBUG(`Response: %s`, buffer);
@@ -59,6 +60,8 @@ async function removed(domain) {
 function createHandler(domains) {
   return (s) => {
     const reply = Object.keys(domains).join('\n');
+
+    s.on('error', (e) => DEBUG('Poll error: %O', e));
 
     s.write(reply, (e) => {
       if (e) {

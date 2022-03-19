@@ -7,7 +7,7 @@ name = "pypi"
 paramiko = "*"
 
 [dev-packages]
-stopit = "*"
+jurigged = "*"
 
 [requires]
 python_version = "3.9"

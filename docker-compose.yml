@@ -38,7 +38,7 @@ services:
     build:
       dockerfile: ./docker/sshc/Dockerfile
       context: ./
-    command: twotube.com:conduit-echo:80 bistro2.farley.org:conduit-echo:80
+    command: twotube.com:conduit-echo:10088 bistro2.farley.org:conduit-echo:10088
     volumes:
       - ./sshc/:/app:ro
       - ./docker/sshc/entrypoint.py:/entrypoint.py:ro
@@ -74,6 +74,7 @@ services:
       - 10088:80
     environment:
       - TUNNELS_MAP=/usr/local/etc/haproxy/tunnels.map
+      - SSHD_BACKEND=sshd
 
   conduit-dyndns:
     image: conduit/dyndns

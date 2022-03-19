@@ -1,5 +1,6 @@
 local os = require('os')
 
+local SSHD_BACKEND = os.getenv('SSHD_BACKEND') or 'sshd';
 local TUNNELS_MAP = os.getenv('TUNNELS_MAP') or '/usr/local/etc/haproxy/tunnels.map'
 
 -- Good reference:
@@ -47,12 +48,12 @@ end
 
 -- Update tunnels from single sshd server.
 local function update_server_tunnels(addr)
-    core.Debug('Updating host: ' .. addr)
+    core.Debug('Updating server: ' .. addr)
     local host = split(addr, ':')[1]
     local tunnels = fetch_tunnels(host .. ':1337')
 
     if tunnels == nil then
-        core.Debug('No tunnels, skipping host...')
+        core.Debug('No tunnels, skipping server...')
         return
     end
 
@@ -73,16 +74,15 @@ local function update_tunnels()
     while true do
         core.Debug('Updating tunnel map.\n')
 
-        for name, backend in pairs(core.backends) do
-            if name == 'sshd' then
-                core.Debug('Enumerating backend: ' .. name)
+        local backend = core.backends[SSHD_BACKEND]
+        if backend ~= nil then
+            core.Debug('Enumerating backend: ' .. SSHD_BACKEND)
 
-                for name, server in pairs(backend.servers) do
-                    core.Debug('Discovered host: ' .. name)
-                    local addr = server:get_addr()
-                    if addr ~= '<unknown>' then
-                        update_server_tunnels(addr)
-                    end
+            for name, server in pairs(backend.servers) do
+                core.Debug('Discovered server: ' .. name)
+                local addr = server:get_addr()
+                if addr ~= '<unknown>' then
+                    update_server_tunnels(addr)
                 end
             end
         end

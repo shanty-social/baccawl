@@ -71,7 +71,7 @@ function clientPortRequestHandler(ctx, clientInfo) {
   clientInfo.tunnels.push({
     bindAddr: info.bindAddr,
     bindPort,
-    client: info.client,
+    client: ctx.client,
     domain: null,
   });
 
@@ -153,7 +153,7 @@ function createConnectionHandler(emitter) {
       })
       .on('ready', () => DEBUG('Client authenticated!'))
       .on('request', (accept, reject, name, info) => {
-        clientPortRequestHandler({ accept, reject, name, info }, clientInfo)
+        clientPortRequestHandler({ accept, reject, name, info, client }, clientInfo)
       })
       .on('session', (accept, reject) => {
         clientSessionHandler(accept, reject, emitter, clientInfo)

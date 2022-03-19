@@ -1,4 +1,4 @@
-HTTP/1.1 503 Service Unavailable
+HTTP/1.1 502 Bad Gateway
 Cache-Control: no-cache
 Connection: close
 Content-Type: text/html
@@ -11,7 +11,7 @@ Content-Type: text/html
     </head>
     <body>
         <main>
-            <h1>503 Service Unavailable</h1>
+            <h1>502 Bad Gateway</h1>
 
             This site is not available right now. Please be patient. If this
             is your site, see help at

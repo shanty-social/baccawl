@@ -1,10 +1,12 @@
+#!/usr/bin/env python3
+
 import os
 import sys
 import logging
 import uuid
 
+sys.path.append('/app')
 import sshc
-
 
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'DEBUG').upper()
 

@@ -20,25 +20,28 @@ services:
       - ./sshd:/app:ro
       - ssh-keys:/etc/sshd/keys
     networks:
-      - shared
-      - private
+      shared:
+      private:
+        ipv4_address: 172.25.0.200
     environment:
       - DEBUG=sshd*
       - SSHD_HOST_KEY_DIR=/etc/sshd/keys/
       - SSHD_HOST=0.0.0.0
       - SSHD_PORT=22
-      - REDIS_HOST=conduit-redis
+      - PROXY_PORT=0.0.0.0
+      - PROXY_PORT=10088
       - SHANTY_URL=http://conduit-echo:10088
+      - HAPROXY_HOSTS=conduit-haproxy:9999
 
   conduit-sshc:
     image: conduit/sshc
     build:
       dockerfile: ./docker/sshc/Dockerfile
       context: ./
-    command: www.foo.com:conduit-echo:80 www.bar.com:conduit-echo:80
+    command: twotube.com:conduit-echo:80 bistro2.farley.org:conduit-echo:80
     volumes:
       - ./sshc/:/app:ro
-      - ./docker/sshc/entrypoint.sh:/entrypoint.sh:ro
+      - ./docker/sshc/entrypoint.py:/entrypoint.py:ro
     depends_on:
       - conduit-sshd
     networks:
@@ -67,11 +70,10 @@ services:
       - private
     depends_on:
       - conduit-sshd
-      - conduit-redis
     ports:
       - 10088:80
     environment:
-      - SSHD_HOSTS=conduit-sshd:1337
+      - TUNNELS_MAP=/usr/local/etc/haproxy/tunnels.map
 
   conduit-dyndns:
     image: conduit/dyndns
@@ -89,22 +91,9 @@ services:
       - CONSOLE_AUTH_TOKEN=abcdefghijklmnopqrstuvwxyz
       - LOG_LEVEL=debug
 
-  conduit-redis:
-    image: redis:alpine
-    networks:
-      - private
-  
   conduit-echo:
     image: jmalloc/echo-server
     networks:
       - private
     environment:
       - PORT=10088
-
-  conduit-tcp-echo:
-    image: n0r1skcom/echo
-    networks:
-      private:
-        ipv4_address: 172.25.0.200
-    ports:
-      - 10099:3333

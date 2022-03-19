@@ -16,8 +16,7 @@ function createHandler(domains, emitter) {
     }
 
     // establish connection via tunnel.
-    const { client, bindAddr, bindPort } = info;
-    client.forwardOut(bindAddr, bindPort, addr.address, addr.port, (e, channel) => {
+    info.client.forwardOut(info.bindAddr, info.bindPort, addr.address, addr.port, (e, channel) => {
       if (e) {
         DEBUG('Error forwarding: %O', e);
         return;

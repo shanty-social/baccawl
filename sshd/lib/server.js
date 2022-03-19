@@ -55,7 +55,8 @@ function clientAuthenticationHandler(ctx, clientInfo) {
 function clientPortRequestHandler(ctx, clientInfo) {
   DEBUG('Received request: %s, %O', ctx.name, ctx.info);
 
-  const { bindAddr, bindPort } = ctx.info;
+  const { info } = ctx;
+  let bindPort = info.bindPort;
   if (ctx.name !== 'tcpip-forward' || bindPort !== 0) {
     DEBUG('Request rejected');
     ctx.reject();
@@ -68,9 +69,9 @@ function clientPortRequestHandler(ctx, clientInfo) {
   // exec request that we expect to come directly.
   bindPort = Math.round(Math.random() * 65533) + 1;
   clientInfo.tunnels.push({
-    bindAddr,
+    bindAddr: info.bindAddr,
     bindPort,
-    client,
+    client: info.client,
     domain: null,
   });
 
@@ -92,9 +93,17 @@ function clientSessionHandler(accept, reject, emitter, clientInfo) {
     let bindPort, tunnelInfo;
     try {
       bindPort = parseInt(cmdParts[2], 10);
-      tunnelInfo = clientInfo.tunnels.find((o) => o.bindPort = bindPort);
+      DEBUG('bindPort: %i', bindPort);
+      tunnelInfo = clientInfo.tunnels.find((o) => o.bindPort === bindPort);
+      DEBUG('tunnelInfo: %O', tunnelInfo);
     } catch(e) {
       DEBUG('Command format error: %O', e);
+      rejectCommand();
+      return;
+    }
+
+    if (!tunnelInfo) {
+      DEBUG('Invalid port, no tunnel')
       rejectCommand();
       return;
     }

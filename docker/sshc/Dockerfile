@@ -1,8 +1,8 @@
 FROM python:3-alpine3.15
 
 ADD ./sshc /app
-ADD ./docker/sshc/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+ADD ./docker/sshc/entrypoint.py /entrypoint.py
+RUN chmod +x /entrypoint.py
 
 WORKDIR /app
 RUN apk add --no-cache py3-pip build-base libffi libffi-dev && \
@@ -10,4 +10,4 @@ RUN apk add --no-cache py3-pip build-base libffi libffi-dev && \
     pipenv install --system --skip-lock && \
     apk del build-base libffi-dev
 
-ENTRYPOINT [ "/entrypoint.sh" ]
+ENTRYPOINT [ "/entrypoint.py" ]

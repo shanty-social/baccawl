@@ -8,38 +8,51 @@ const HAPROXY_HOSTS = (process.env.HAPROXY_HOSTS || '')
 const MAP_NAME = process.env.HAPROXY_MAP_NAME || '/usr/local/etc/haproxy/tunnels.map';
 
 async function send(host, port, msg) {
+  DEBUG(`Sending: %s to %s:%i`, msg, host, port);
+
   return new Promise((resolve, reject) => {
     const c = net.createConnection({ port, host }, () => {
       c.write(msg);
     });
     c.on('data', (buffer) => {
+      buffer = buffer.toString().replace(/(\r\n|\n|\r)/gm, "");
+      DEBUG(`Response: %s`, buffer);
       c.end();
-      DEBUG('Announce response: %s', buffer);
-      resolve(buffer);
+      if (buffer.includes('not found')) {
+        reject(new Error(buffer));
+      } else {
+        resolve(buffer);
+      }
     })
     c.on('error', reject);
   });
 }
 
-function added(domain) {
+async function added(domain) {
   for (const [host, port] of HAPROXY_HOSTS) {
-    send(host, port, `set map ${MAP_NAME} ${domain} ${localIp}\n`)
-      .then(() => DEBUG('Announced add %s:%i, domain: %s', host, port, domain))
-      .catch((e) => {
-        DEBUG('Error announcing add %s:%i, domain: %s', host, port, domain)
-        DEBUG('%O', e);
-      });
+    // NOTE: haproxy has set and add. Without knowing if a given key exists,
+    // we first try to set, then add.
+    for (const cmd of ['set', 'add']) {
+      let r;
+
+      try {
+        await send(host, port, `${cmd} map ${MAP_NAME} ${domain} ${localIp}\n`);
+        DEBUG('Announced domain: %s', domain);
+        break;
+      } catch (e) {
+        DEBUG('Error announcing domain: %s, %O', domain, e);
+      }
+    }
   }
 }
 
 async function removed(domain) {
   for (const [host, port] of HAPROXY_HOSTS) {
-    send(host, port, `del map ${MAP_NAME} ${domain}\n`)
-      .then(() => DEBUG('Announced del %s:%i, domain: %s', host, port, domain))
-      .catch((e) => {
-        DEBUG('Error announcing del %s:%i, domain: %s', host, port, domain)
-        DEBUG('%O', e);
-      });
+    try {
+      await send(host, port, `del map ${MAP_NAME} ${domain}\n`)
+    } catch (e) {
+      DEBUG('Error announcing del domain: %s, %O', domain, e);
+    }
   }
 }
 
@@ -47,11 +60,11 @@ function createHandler(domains) {
   return (s) => {
     const reply = Object.keys(domains).join('\n');
 
-    s.send(reply, (e) => {
+    s.write(reply, (e) => {
       if (e) {
         DEBUG('Poll error: %O', e);
       }
-      s.close();
+      s.end();
     });
   };
 }

@@ -79,11 +79,13 @@ class Tunnel:
         LOGGER.debug('Establishing tunnel')
         ssh = self._client._ssh
         transport = ssh.get_transport()
+        if transport is None:
+            raise paramiko.SSHException('No transport')
         transport.open_session()
         self._remote_port = transport.request_port_forward(
             '0.0.0.0', 0, self._handle_connection)
         try:
-            ssh.exec_command(f'tunnel {self.hostname}')
+            ssh.exec_command(f'tunnel {self.hostname} {self._remote_port}')
 
         except Exception as e:
             LOGGER.exception('error finalizing tunnel')
@@ -158,6 +160,7 @@ class SSHC:
                     tunnels = list(self._tunnels.values())
 
                 if len(tunnels) == 0:
+                    LOGGER.debug('No tunnels sleeping')
                     # No active tunnels, close SSH and wait for a new tunnel.
                     self._disconnect()
                     self._event.wait()
@@ -169,19 +172,15 @@ class SSHC:
                     self._connect()
                     total = 0
                     for tunnel in tunnels:
-                        try:
-                            total += tunnel.poll()
-
-                        except Exception as e:
-                            LOGGER.exception('error polling tunnel')
-                    if total:
-                        # Data moved, try again.
-                        continue
-                    # We moved no data, so sleep a bit.
-                    time.sleep(0.01)
+                        total += tunnel.poll()
+                    if not total:
+                        # We moved no data, so sleep a bit.
+                        time.sleep(0.01)
 
             except Exception as e:
                 LOGGER.exception('error in connection manager')
+                self._disconnect()
+                time.sleep(10)
 
     def add_tunnel(self, hostname, addr, port):
         "Open a new tunnel for HTTP traffic."

@@ -2,6 +2,7 @@ local os = require('os')
 
 local SSHD_BACKEND = os.getenv('SSHD_BACKEND') or 'sshd';
 local TUNNELS_MAP = os.getenv('TUNNELS_MAP') or '/usr/local/etc/haproxy/tunnels.map'
+local ANNOUNCE_PORT = tonumber(os.getenv('ANNOUNCE_PORT') or 1337)
 
 -- Good reference:
 -- http://www.arpalert.org/src/haproxy-lua-api/2.6/index.html
@@ -48,9 +49,8 @@ end
 
 -- Update tunnels from single sshd server.
 local function update_server_tunnels(addr)
-    core.Debug('Updating server: ' .. addr)
     local host = split(addr, ':')[1]
-    local tunnels = fetch_tunnels(host .. ':1337')
+    local tunnels = fetch_tunnels(host .. ':' .. ANNOUNCE_PORT)
 
     if tunnels == nil then
         core.Debug('No tunnels, skipping server')

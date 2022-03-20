@@ -30,8 +30,10 @@ services:
       - SSHD_HOST_KEY_DIR=/etc/sshd/keys/
       - SSHD_HOST=0.0.0.0
       - SSHD_PORT=22
-      - PROXY_PORT=0.0.0.0
+      - PROXY_HOST=0.0.0.0
       - PROXY_PORT=10088
+      - ANNOUNCE_HOST=0.0.0.0
+      - ANNOUNCE_PORT=1337
       - SHANTY_URL=http://shanty.local:8000
       - HAPROXY_HOSTS=conduit-haproxy:9999
 
@@ -80,6 +82,7 @@ services:
     environment:
       - TUNNELS_MAP=/usr/local/etc/haproxy/tunnels.map
       - SSHD_BACKEND=sshd
+      - ANNOUNCE_PORT=1337
 
   conduit-echo:
     image: jmalloc/echo-server

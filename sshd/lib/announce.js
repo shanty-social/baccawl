@@ -2,7 +2,6 @@ const net = require('net');
 const localIp = require('local-ip')('eth0');
 const DEBUG = require('debug')('sshd:announce');
 
-
 const HAPROXY_HOSTS = (process.env.HAPROXY_HOSTS || '').split(' ');
 const HAPROXY_PORT = parseInt(process.env.HAPROXY_PORT || 9999, 10);
 const MAP_NAME = process.env.HAPROXY_MAP_NAME || '/usr/local/etc/haproxy/tunnels.map';

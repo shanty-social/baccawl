@@ -29,11 +29,13 @@ run: shared
 .PHONY: test
 test:
 	${MAKE} -C sshd test
+	${MAKE} -C sshc test
 
 
 .PHONY: lint
 lint:
 	${MAKE} -C sshd lint
+	${MAKE} -C sshc lint
 
 
 .PHONY: ci

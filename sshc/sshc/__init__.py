@@ -1,5 +1,4 @@
 import os
-import time
 import threading
 import logging
 import socket
@@ -129,7 +128,7 @@ class SSHManager:
         try:
             self._ssh.exec_command(f'tunnel {domain} {remote_port}')
 
-        except Exception as e:
+        except Exception:
             LOGGER.exception('error adding tunnel')
             raise
 
@@ -169,7 +168,7 @@ def add_tunnel(*args):
 
 
 def del_tunnel(*args):
-    global Manager
+    global MANAGER
     if MANAGER is None:
         return
     MANAGER.del_tunnel(*args)

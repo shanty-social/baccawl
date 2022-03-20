@@ -6,7 +6,6 @@ import time
 import threading
 from io import StringIO
 
-from stopit import async_raise
 import paramiko
 from paramiko.py3compat import decodebytes
 

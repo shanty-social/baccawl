@@ -10,3 +10,8 @@ deps: .venv
 .PHONY: test
 test: deps
 	pipenv run python3 -m tests
+
+
+.PHONY: lint
+lint: deps
+	pipenv run flake8 sshc

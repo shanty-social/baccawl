@@ -1,3 +1,4 @@
+/* eslint-disable no-bitwise, no-param-reassign, no-plusplus */
 const net = require('net');
 const { EventEmitter } = require('events');
 const DEBUG = require('debug')('sshd:proxy');
@@ -5,26 +6,32 @@ const DEBUG = require('debug')('sshd:proxy');
 const MAGIC = '\r\n\r\n\x00\r\nQUIT\n';
 
 function decodeV4Address(buf, offset) {
-	var address = new Array(4);
-	for (var i = 0; i < 4; i++) address[i] = Number(buf[offset + i]).toString();
+  let i;
+  const address = new Array(4);
+  for (i = 0; i < 4; i++) {
+    address[i] = Number(buf[offset + i]).toString();
+  }
 
-	return address.join('.');
+  return address.join('.');
 }
 
+// eslint-disable-next-line no-unused-vars
 function decodeV6Address(buf, offset) {
-	var address = new Array(8);
-	for (var i = 0; i < 8; i++)
-		address[i] = Number(buf.readUInt16BE(offset + i * 2, true)).toString(16);
+  let i;
+  const address = new Array(8);
+  for (i = 0; i < 8; i++) {
+    address[i] = Number(buf.readUInt16BE(offset + i * 2, true)).toString(16);
+  }
 
-	return address.join(':').replace(/:(?:0:)+/, '::');
+  return address.join(':').replace(/:(?:0:)+/, '::');
 }
 
 function parseTLV(buffer, offset) {
   console.log(buffer.subarray(offset).toString('hex'));
-  type = buffer.readUInt8(offset++);
-  length = buffer.readUInt16BE(offset);
+  const type = buffer.readUInt8(offset++);
+  const length = buffer.readUInt16BE(offset);
   offset += 2;
-  value = buffer.subarray(offset, offset + length).toString();
+  const value = buffer.subarray(offset, offset + length).toString();
   return { type, length: length + 2, value };
 }
 
@@ -44,7 +51,7 @@ function parseProxyData(header, buffer) {
     fields.remotePort = buffer.readUInt16BE(8);
     fields.localPort = buffer.readUInt16BE(10);
     offset += 4;
-  } else if (family === 0x02) {
+  } else if (header.family === 0x02) {
     // TODO: decode ipv6
   }
 
@@ -70,11 +77,11 @@ function parseProxyHeader(buffer) {
     throw new Error('Invalid proxy protocol preamble');
   }
 
-  const fam_prot = buffer.readUInt8(13);
+  const famProt = buffer.readUInt8(13);
   fields.length = buffer.readUInt16BE(14);
 
-  fields.family = fam_prot & 0xf0 >> 4;
-  fields.protocol = fam_prot & 0x0f;
+  fields.family = (famProt & 0xf0) >> 4;
+  fields.protocol = famProt & 0x0f;
 
   console.log(fields);
 
@@ -91,7 +98,7 @@ function createHandler(domains, emitter) {
       const header = parseProxyHeader(buffer);
       const fields = parseProxyData(header, buffer.subarray(16));
       const host = fields.tlv[0].value;
-  
+
       // get host connection info.
       const info = domains[host];
       if (!info) {
@@ -100,40 +107,46 @@ function createHandler(domains, emitter) {
       }
 
       // establish connection via tunnel.
-      info.client.forwardOut(info.bindAddr, info.bindPort, addr.address, addr.port, (e, channel) => {
-        if (e) {
-          DEBUG('Error forwarding: %O', e);
-          return;
+      info.client.forwardOut(
+        info.bindAddr,
+        info.bindPort,
+        addr.address,
+        addr.port,
+        (e, channel) => {
+          if (e) {
+            DEBUG('Error forwarding: %O', e);
+            return;
+          }
+          // Connect client socket and SSH channel.
+          DEBUG('Connecting client<->channel');
+
+          channel.write(buffer.subarray(16 + header.length));
+
+          c
+            .pipe(channel)
+            .pipe(c);
+
+          c.on('end', () => {
+            channel.end();
+            DEBUG('TCP forwarding closed by client');
+          });
+
+          channel.on('end', () => {
+            c.end();
+            DEBUG('TCP forwarding closed by tunnel');
+          });
         }
-        // Connect client socket and SSH channel.
-        DEBUG('Connecting client<->channel');
-
-        channel.write(buffer.subarray(16 + header.length));
-
-        c
-          .pipe(channel)
-          .pipe(c);
-
-        c.on('end', () => {
-          channel.end();
-          DEBUG('TCP forwarding closed by client');
-        });
-
-        channel.on('end', () => {
-          c.end();
-          DEBUG('TCP forwarding closed by tunnel');
-        });
-      });
+      );
     });
   };
 }
 
-function start(port, addr, domains) {
+function start(port, host, domains) {
   const emitter = new EventEmitter();
   const handler = createHandler(domains, emitter);
   const s = net.createServer(handler);
 
-  s.listen(port, addr, 100, () => {
+  s.listen(port, host, 100, () => {
     const addr = s.address();
     DEBUG('Proxy server listening at %s:%i', addr.address, addr.port);
   });

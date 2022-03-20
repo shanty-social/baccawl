@@ -38,6 +38,7 @@ function clientAuthenticationHandler(ctx, clientInfo) {
       checkKey(ctx)
         .then(() => {
           DEBUG('Accepting key');
+          // eslint-disable-next-line no-param-reassign
           clientInfo.username = ctx.username;
           ctx.accept();
         })
@@ -56,7 +57,7 @@ function clientPortRequestHandler(ctx, clientInfo) {
   DEBUG('Received request: %s, %O', ctx.name, ctx.info);
 
   const { info } = ctx;
-  let bindPort = info.bindPort;
+  let { bindPort } = info;
   if (ctx.name !== 'tcpip-forward' || bindPort !== 0) {
     DEBUG('Request rejected');
     ctx.reject();
@@ -92,20 +93,21 @@ function clientSessionHandler(accept, reject, emitter, clientInfo) {
       return;
     }
 
-    let bindPort, tunnelInfo;
+    let bindPort;
+    let tunnelInfo;
     try {
       bindPort = parseInt(cmdParts[2], 10);
       DEBUG('bindPort: %i', bindPort);
       tunnelInfo = clientInfo.tunnels.find((o) => o.bindPort === bindPort);
       DEBUG('tunnelInfo: %O', tunnelInfo);
-    } catch(e) {
+    } catch (e) {
       DEBUG('Command format error: %O', e);
       rejectCommand();
       return;
     }
 
     if (!tunnelInfo) {
-      DEBUG('Invalid port, no tunnel')
+      DEBUG('Invalid port, no tunnel');
       rejectCommand();
       return;
     }
@@ -131,7 +133,7 @@ function clientEndHandler(emitter, clientInfo) {
     return;
   }
 
-  for (tunnelInfo of clientInfo.tunnels) {
+  for (const tunnelInfo of clientInfo.tunnels) {
     try {
       emitter.emit('tunnel:close', tunnelInfo);
     } catch (e) {
@@ -155,10 +157,12 @@ function createConnectionHandler(emitter) {
       })
       .on('ready', () => DEBUG('Client authenticated!'))
       .on('request', (accept, reject, name, info) => {
-        clientPortRequestHandler({ accept, reject, name, info, client }, clientInfo)
+        clientPortRequestHandler({
+          accept, reject, name, info, client,
+        }, clientInfo);
       })
       .on('session', (accept, reject) => {
-        clientSessionHandler(accept, reject, emitter, clientInfo)
+        clientSessionHandler(accept, reject, emitter, clientInfo);
       })
       .on('end', () => clientEndHandler(emitter, clientInfo))
       .on('error', (e) => {

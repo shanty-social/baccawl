@@ -8,7 +8,7 @@ const HAPROXY_HOSTS = (process.env.HAPROXY_HOSTS || '')
 const MAP_NAME = process.env.HAPROXY_MAP_NAME || '/usr/local/etc/haproxy/tunnels.map';
 
 async function send(host, port, msg) {
-  DEBUG(`Sending: %s to %s:%i`, msg, host, port);
+  DEBUG('Sending: %s to %s:%i', msg, host, port);
 
   return new Promise((resolve, reject) => {
     const c = net.createConnection({ port, host }, () => {
@@ -16,15 +16,16 @@ async function send(host, port, msg) {
     });
     c.on('error', (e) => DEBUG('Error providing domain list: %O', e));
     c.on('data', (buffer) => {
-      buffer = buffer.toString().replace(/(\r\n|\n|\r)/gm, "");
-      DEBUG(`Response: %s`, buffer);
+      // eslint-disable-next-line no-param-reassign
+      buffer = buffer.toString().replace(/(\r\n|\n|\r)/gm, '');
+      DEBUG('Response: %s', buffer);
       c.end();
       if (buffer.includes('not found')) {
         reject(new Error(buffer));
       } else {
         resolve(buffer);
       }
-    })
+    });
     c.on('error', reject);
   });
 }
@@ -34,9 +35,8 @@ async function added(domain) {
     // NOTE: haproxy has set and add. Without knowing if a given key exists,
     // we first try to set, then add.
     for (const cmd of ['set', 'add']) {
-      let r;
-
       try {
+        // eslint-disable-next-line no-await-in-loop
         await send(host, port, `${cmd} map ${MAP_NAME} ${domain} ${localIp}\n`);
         DEBUG('Announced domain: %s', domain);
         break;
@@ -50,7 +50,8 @@ async function added(domain) {
 async function removed(domain) {
   for (const [host, port] of HAPROXY_HOSTS) {
     try {
-      await send(host, port, `del map ${MAP_NAME} ${domain}\n`)
+      // eslint-disable-next-line no-await-in-loop
+      await send(host, port, `del map ${MAP_NAME} ${domain}\n`);
     } catch (e) {
       DEBUG('Error announcing del domain: %s, %O', domain, e);
     }
@@ -85,5 +86,5 @@ function start(port, host, domains) {
 module.exports = {
   added,
   removed,
-  start
+  start,
 };

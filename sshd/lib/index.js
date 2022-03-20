@@ -1,7 +1,7 @@
+const DEBUG = require('debug')('sshd');
 const { start: startProxy } = require('./proxy');
 const { start: startSSH } = require('./server');
 const { added, removed, start: startAnnounce } = require('./announce');
-const DEBUG = require('debug')('sshd');
 
 const PROXY_HOST = process.env.PROXY_HOST || '0.0.0.0';
 const PROXY_PORT = parseInt(process.env.PROXY_PORT || 80, 10);
@@ -11,8 +11,10 @@ const ANNOUNCE_HOST = process.env.ANNOUNCE_HOST || '0.0.0.0';
 const ANNOUNCE_PORT = parseInt(process.env.ANNOUNCE_PORT || 1337, 10);
 
 function main() {
+  DEBUG('Starting up');
+
   const domains = {};
-  const sshd = startSSH(SSHD_PORT, SSHD_HOST)
+  const sshd = startSSH(SSHD_PORT, SSHD_HOST);
   const proxy = startProxy(PROXY_PORT, PROXY_HOST, domains);
   startAnnounce(ANNOUNCE_PORT, ANNOUNCE_HOST, domains);
 

@@ -1,6 +1,10 @@
-.venv: Pipfile
+.PHONY: sysdeps
+sysdeps:
+	pip install pipenv
+
+
+.venv: Pipfile sysdeps
 	PIPENV_VENV_IN_PROJECT=true pipenv install --dev
-	touch .venv
 
 
 .PHONY: deps
@@ -14,4 +18,4 @@ test: deps
 
 .PHONY: lint
 lint: deps
-	pipenv run flake8 sshc
+	pipenv run flake8 client

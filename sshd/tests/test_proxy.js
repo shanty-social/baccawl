@@ -1,3 +1,4 @@
+const { assert } = require('chai');
 const { parseProxyData, parseProxyHeader } = require('../lib/proxy');
 
 const BUFFER = Buffer.from(
@@ -22,6 +23,10 @@ describe('PROXY PROTOCOL handling', () => {
   it('can decode v2', () => {
     const header = parseProxyHeader(BUFFER.subarray(0, 16));
     const data = parseProxyData(header, BUFFER.subarray(16, 16 + header.length));
-    console.log(data);
+    assert.property(data, 'remoteAddress');
+    assert.property(data, 'remotePort');
+    assert.property(data, 'localAddress');
+    assert.property(data, 'localPort');
+    assert.property(data, 'tlv');
   });
 });

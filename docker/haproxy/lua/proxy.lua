@@ -72,21 +72,22 @@ local function update_tunnels()
     core.msleep(5000)
 
     while true do
-        core.Debug('Updating tunnel map')
+        core.Info('Updating tunnel map')
 
         local backend = core.backends[SSHD_BACKEND]
         if backend ~= nil then
             core.Debug('Enumerating backend: ' .. SSHD_BACKEND)
 
             for name, server in pairs(backend.servers) do
-                core.Debug('Discovered server: ' .. name)
                 local addr = server:get_addr()
                 if addr ~= '<unknown>' then
+                    core.Debug('Discovered server: ' .. name ..', ' .. addr)
                     update_server_tunnels(addr)
                 end
             end
         end
 
+        core.Info('Tunnel map updated, sleeping')
         core.msleep(60000)
     end
 end

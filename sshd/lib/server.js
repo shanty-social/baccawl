@@ -97,9 +97,8 @@ function clientSessionHandler(accept, reject, emitter, clientInfo) {
     let tunnelInfo;
     try {
       bindPort = parseInt(cmdParts[2], 10);
-      DEBUG('bindPort: %i', bindPort);
+      DEBUG('Looking up tunnel with bindPort: %i', bindPort);
       tunnelInfo = clientInfo.tunnels.find((o) => o.bindPort === bindPort);
-      DEBUG('tunnelInfo: %O', tunnelInfo);
     } catch (e) {
       DEBUG('Command format error: %O', e);
       rejectCommand();

@@ -63,7 +63,7 @@ def _save_cache(*args):
         exit(0)
 
 
-IP_CACHE = _load_cache()
+IP_CACHE = None  # _load_cache()
 
 
 def request(path, headers=None):

@@ -27,7 +27,6 @@ function decodeV6Address(buf, offset) {
 }
 
 function parseTLV(buffer, offset) {
-  console.log(buffer.subarray(offset).toString('hex'));
   const type = buffer.readUInt8(offset++);
   const length = buffer.readUInt16BE(offset);
   offset += 2;
@@ -39,8 +38,6 @@ function parseProxyData(header, buffer) {
   const fields = {
     tlv: [],
   };
-
-  console.log(buffer.toString('hex'));
 
   let offset = 0;
   if (header.family === 0x01) {
@@ -61,7 +58,6 @@ function parseProxyData(header, buffer) {
     offset += record.length;
   }
 
-  console.log(fields);
   fields.length = offset;
 
   return fields;
@@ -70,7 +66,6 @@ function parseProxyData(header, buffer) {
 function parseProxyHeader(buffer) {
   const fields = {};
 
-  console.log(buffer.toString('hex'));
   // check magic:
   const preamble = buffer.subarray(0, 12);
   if (preamble.toString() !== MAGIC) {
@@ -82,8 +77,6 @@ function parseProxyHeader(buffer) {
 
   fields.family = (famProt & 0xf0) >> 4;
   fields.protocol = famProt & 0x0f;
-
-  console.log(fields);
 
   return fields;
 }

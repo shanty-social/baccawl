@@ -13,7 +13,7 @@ import paramiko
 from paramiko.py3compat import decodebytes
 from stopit import async_raise
 
-import sshc
+from client import dns, ssh
 
 
 HOST_KEY_DATA = StringIO(
@@ -36,7 +36,7 @@ HOST_KEY_DATA = StringIO(
 HOST_KEY = paramiko.RSAKey(file_obj=HOST_KEY_DATA)
 
 LOGGER = logging.getLogger()
-LOGGER.setLevel(logging.DEBUG)
+LOGGER.setLevel(logging.ERROR)
 LOGGER.addHandler(logging.StreamHandler())
 
 
@@ -45,9 +45,9 @@ def with_ssh_params(SSH_KEY, SSH_HOST, SSH_PORT):
     with tempfile.NamedTemporaryFile(mode='w') as t:
         SSH_KEY.write_private_key(t)
         t.flush()
-        sshc.SSH_KEY = t.name
-        sshc.SSH_HOST = SSH_HOST
-        sshc.SSH_PORT = SSH_PORT
+        ssh.SSH_KEY = t.name
+        ssh.SSH_HOST = SSH_HOST
+        ssh.SSH_PORT = SSH_PORT
         yield
 
 
@@ -198,12 +198,12 @@ class SSHServerTestCase(unittest.TestCase):
         self.server.stop()
 
 
-class SSHCTestCase(SSHServerTestCase):
-    def test_sshc(self):
+class SSHTestCase(SSHServerTestCase):
+    def test_ssh(self):
         l = LocalHost()
         self.assertFalse(self.server.client_connected.is_set())
         with with_ssh_params(SSH_KEY=HOST_KEY, SSH_HOST='127.0.0.1', SSH_PORT=self.server.port):
-            sshc.add_tunnel('foo.com', '127.0.0.1', l.port)
+            ssh.add_tunnel('foo.com', '127.0.0.1', l.port)
         if not self.server.client_connected.wait(1):
             self.fail('Client did not connect')
         if not self.server.exec_request.wait(1):

@@ -6,16 +6,6 @@ shared:
 	-${DOCKER} network create --subnet=192.168.100.0/24 --ip-range=192.168.100.0/25 --gateway=192.168.100.254 shared
 
 
-.PHONY: sysdeps
-sysdeps:
-	sudo apt-get install qemu binfmt-support qemu-user-static
-
-
-.PHONY: deps
-deps:
-	pipenv install
-
-
 .PHONY: build
 build:
 	${DOCKER_COMPOSE} build
@@ -29,13 +19,13 @@ run: shared
 .PHONY: test
 test:
 	${MAKE} -C sshd test
-	${MAKE} -C sshc test
+	${MAKE} -C client test
 
 
 .PHONY: lint
 lint:
 	${MAKE} -C sshd lint
-	${MAKE} -C sshc lint
+	${MAKE} -C client lint
 
 
 .PHONY: ci

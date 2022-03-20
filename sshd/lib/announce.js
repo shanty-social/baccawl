@@ -41,7 +41,7 @@ async function added(domain) {
         DEBUG('Announced domain: %s', domain);
         break;
       } catch (e) {
-        DEBUG('Error announcing domain: %s, %O', domain, e);
+        DEBUG('Error announcing: %s with %s', domain, cmd);
       }
     }
   }

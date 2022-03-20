@@ -1,15 +1,14 @@
 #!/usr/local/bin/jurigged -v
 
-import sys
-sys.path.append('/app')
-
 import os
+import sys
 import time
 import logging
 
 import paramiko
 
-import sshc
+from client import ssh
+
 
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'DEBUG').upper()
 
@@ -33,10 +32,10 @@ def _parse_args(args):
 
 def main(tunnels):
     for tunnel in tunnels:
-        sshc.add_tunnel(*tunnel)
+        ssh.add_tunnel(*tunnel)
 
     while True:
-        sshc.poll()
+        ssh.poll()
         time.sleep(30)
 
 

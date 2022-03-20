@@ -35,16 +35,16 @@ services:
       - SHANTY_URL=http://shanty.local:8000
       - HAPROXY_HOSTS=conduit-haproxy:9999
 
-  conduit-sshc:
-    image: conduit/sshc
+  conduit-client:
+    image: conduit/client
     build:
-      dockerfile: ./docker/sshc/Dockerfile
+      dockerfile: ./docker/client/Dockerfile
       context: ./
     command: twotube.com:conduit-echo:10088 bistro2.farley.org:conduit-echo:10088
     volumes:
-      - ./sshc:/app:ro
-      - ./docker/sshc/entrypoint.py:/entrypoint.py:ro
-      - ./docker/sshc/console.key:/etc/sshc/console.key:ro
+      - ./client:/app:ro
+      - ./docker/client/entrypoint.py:/entrypoint.py:ro
+      - ./docker/client/client.key:/etc/client/client.key:ro
     depends_on:
       - conduit-sshd
     networks:
@@ -57,7 +57,7 @@ services:
       - SSH_HOST=conduit-haproxy
       - SSH_PORT=2222
       - SSH_USER=0ac99280-5233-47d1-a43b-b02379e832d0
-      - SSH_KEY=/etc/sshc/console.key
+      - SSH_KEY=/etc/client/client.key
       - LOG_LEVEL=debug
 
   conduit-haproxy:
@@ -80,22 +80,6 @@ services:
     environment:
       - TUNNELS_MAP=/usr/local/etc/haproxy/tunnels.map
       - SSHD_BACKEND=sshd
-
-  conduit-dyndns:
-    image: conduit/dyndns
-    build:
-      dockerfile: ./docker/dyndns/Dockerfile
-      context: ./
-    networks:
-      - private
-    extra_hosts:
-      - console.local:172.17.0.1
-    volumes:
-      - ./docker/dyndns/entrypoint.py:/entrypoint.py:ro
-    environment:
-      - CONSOLE_URL=http://console.local:8008
-      - CONSOLE_AUTH_TOKEN=abcdefghijklmnopqrstuvwxyz
-      - LOG_LEVEL=debug
 
   conduit-echo:
     image: jmalloc/echo-server

@@ -95,6 +95,7 @@ class SSHManager:
             raise
 
         LOGGER.debug('Established ssh connection')
+        self.transport.set_keepalive(30)
 
         for domain, (addr, port, _) in self._tunnels.items():
             remote_port = self._setup_tunnel(domain, addr, port)

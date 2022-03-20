@@ -4,12 +4,16 @@ import logging
 import socket
 import time
 import threading
+import tempfile
+import shutil
 from io import StringIO
+from contextlib import contextmanager
 
 import paramiko
 from paramiko.py3compat import decodebytes
+from stopit import async_raise
 
-from sshc import SSHC
+import sshc
 
 
 HOST_KEY_DATA = StringIO(
@@ -34,6 +38,17 @@ HOST_KEY = paramiko.RSAKey(file_obj=HOST_KEY_DATA)
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.DEBUG)
 LOGGER.addHandler(logging.StreamHandler())
+
+
+@contextmanager
+def with_ssh_params(SSH_KEY, SSH_HOST, SSH_PORT):
+    with tempfile.NamedTemporaryFile(mode='w') as t:
+        SSH_KEY.write_private_key(t)
+        t.flush()
+        sshc.SSH_KEY = t.name
+        sshc.SSH_HOST = SSH_HOST
+        sshc.SSH_PORT = SSH_PORT
+        yield
 
 
 class CancelError(Exception):
@@ -186,10 +201,9 @@ class SSHServerTestCase(unittest.TestCase):
 class SSHCTestCase(SSHServerTestCase):
     def test_sshc(self):
         l = LocalHost()
-        c = SSHC(
-            str(uuid.uuid4()), HOST_KEY, host='127.0.0.1', port=self.server.port)
         self.assertFalse(self.server.client_connected.is_set())
-        c.add_tunnel('foo.com', '127.0.0.1', l.port)
+        with with_ssh_params(SSH_KEY=HOST_KEY, SSH_HOST='127.0.0.1', SSH_PORT=self.server.port):
+            sshc.add_tunnel('foo.com', '127.0.0.1', l.port)
         if not self.server.client_connected.wait(1):
             self.fail('Client did not connect')
         if not self.server.exec_request.wait(1):

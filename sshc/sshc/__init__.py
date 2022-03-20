@@ -147,7 +147,7 @@ class SSHManager:
         self._check_connection()
 
 
-def load_key(path=SSH_KEY):
+def load_key(path=None):
     "Generate a client key for use with the library."
     if path is not None:
         if isfile(path):
@@ -163,7 +163,7 @@ def add_tunnel(*args):
     global MANAGER
     if MANAGER is None:
         MANAGER = SSHManager(
-            host=SSH_HOST, port=SSH_PORT, user=SSH_USER, key=load_key())
+            host=SSH_HOST, port=SSH_PORT, user=SSH_USER, key=load_key(SSH_KEY))
     MANAGER.add_tunnel(*args)
 
 

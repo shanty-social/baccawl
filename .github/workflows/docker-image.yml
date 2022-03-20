@@ -43,36 +43,12 @@ jobs:
             --tag ${{secrets.DOCKER_USER}}/conduit-sshd:${{env.tag}} \
             --platform linux/amd64 .
 
-      - name: build and push sshc
+      - name: build and push haproxy
         run: |
-          docker buildx build -f docker/sshc/Dockerfile \
+          docker buildx build -f docker/haproxy/Dockerfile \
             --push \
-            --tag ${{secrets.DOCKER_USER}}/conduit-sshc:latest \
-            --tag ${{secrets.DOCKER_USER}}/conduit-sshc:${{env.tag}} \
-            --platform linux/amd64,linux/arm/v7,linux/arm64 .
-
-      - name: build and push balancer
-        run: |
-          docker buildx build -f docker/balancer/Dockerfile \
-            --push \
-            --tag ${{secrets.DOCKER_USER}}/conduit-balancer:latest \
-            --tag ${{secrets.DOCKER_USER}}/conduit-balancer:${{env.tag}} \
-            --platform linux/amd64 .
-
-      - name: build and push dyndns
-        run: |
-          docker buildx build -f docker/dyndns/Dockerfile \
-            --push \
-            --tag ${{secrets.DOCKER_USER}}/conduit-dyndns:latest \
-            --tag ${{secrets.DOCKER_USER}}/conduit-dyndns:${{env.tag}} \
-            --platform linux/amd64 .
-
-      - name: build and push reverse
-        run: |
-          docker buildx build -f docker/reverse/Dockerfile \
-            --push \
-            --tag ${{secrets.DOCKER_USER}}/conduit-reverse:latest \
-            --tag ${{secrets.DOCKER_USER}}/conduit-reverse:${{env.tag}} \
+            --tag ${{secrets.DOCKER_USER}}/conduit-haproxy:latest \
+            --tag ${{secrets.DOCKER_USER}}/conduit-haproxy:${{env.tag}} \
             --platform linux/amd64 .
 
       - name: Docker Hub Description

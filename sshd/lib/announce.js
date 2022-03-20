@@ -2,9 +2,9 @@ const net = require('net');
 const localIp = require('local-ip')('eth0');
 const DEBUG = require('debug')('sshd:announce');
 
-const HAPROXY_HOSTS = (process.env.HAPROXY_HOSTS || '')
-  .split(',')
-  .map((v) => v.split(':'));
+
+const HAPROXY_HOSTS = (process.env.HAPROXY_HOSTS || '').split(' ');
+const HAPROXY_PORT = parseInt(process.env.HAPROXY_PORT || 9999, 10);
 const MAP_NAME = process.env.HAPROXY_MAP_NAME || '/usr/local/etc/haproxy/tunnels.map';
 
 async function send(host, port, msg) {
@@ -17,7 +17,7 @@ async function send(host, port, msg) {
     c.on('error', (e) => DEBUG('Error providing domain list: %O', e));
     c.on('data', (buffer) => {
       // eslint-disable-next-line no-param-reassign
-      buffer = buffer.toString().replace(/(\r\n|\n|\r)/gm, '');
+      buffer = buffer.toString().trim();
       DEBUG('Response: %s', buffer);
       c.end();
       if (buffer.includes('not found')) {
@@ -31,13 +31,13 @@ async function send(host, port, msg) {
 }
 
 async function added(domain) {
-  for (const [host, port] of HAPROXY_HOSTS) {
+  for (const host of HAPROXY_HOSTS) {
     // NOTE: haproxy has set and add. Without knowing if a given key exists,
     // we first try to set, then add.
     for (const cmd of ['set', 'add']) {
       try {
         // eslint-disable-next-line no-await-in-loop
-        await send(host, port, `${cmd} map ${MAP_NAME} ${domain} ${localIp}\n`);
+        await send(host, HAPROXY_PORT, `${cmd} map ${MAP_NAME} ${domain} ${localIp}\n`);
         DEBUG('Announced domain: %s', domain);
         break;
       } catch (e) {
@@ -48,10 +48,10 @@ async function added(domain) {
 }
 
 async function removed(domain) {
-  for (const [host, port] of HAPROXY_HOSTS) {
+  for (const host of HAPROXY_HOSTS) {
     try {
       // eslint-disable-next-line no-await-in-loop
-      await send(host, port, `del map ${MAP_NAME} ${domain}\n`);
+      await send(host, HAPROXY_PORT, `del map ${MAP_NAME} ${domain}\n`);
     } catch (e) {
       DEBUG('Error announcing del domain: %s, %O', domain, e);
     }

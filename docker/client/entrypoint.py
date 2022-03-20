@@ -36,7 +36,7 @@ def main(tunnels):
 
     while True:
         ssh.poll()
-        time.sleep(30)
+        time.sleep(10)
 
 
 main(_parse_args(sys.argv[1:]))

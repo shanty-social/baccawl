@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -x
 
 if [ ! -d "${SSHD_HOST_KEY_DIR}" ]; then
     mkdir -p ${SSHD_HOST_KEY_DIR}
@@ -21,6 +21,8 @@ if [ "${AUTORELOAD}" == "yes" ] || [ "${AUTORELOAD}" == "true" ]; then
 else
     CMD=node
 fi
+
+export HAPROXY_HOSTS=$(nslookup -type=a ${HAPROXY_HOST} | grep -v 127 | grep Address: | awk ' { printf "%s ", $2 } ' | xargs echo)
 
 cd /app
 

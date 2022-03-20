@@ -35,7 +35,8 @@ services:
       - ANNOUNCE_HOST=0.0.0.0
       - ANNOUNCE_PORT=1337
       - SHANTY_URL=http://shanty.local:8000
-      - HAPROXY_HOSTS=conduit-haproxy:9999
+      - HAPROXY_HOST=conduit-haproxy
+      - HAPROXY_PORT=9999
 
   conduit-client:
     image: conduit/client

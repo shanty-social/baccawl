@@ -14,6 +14,7 @@ with open(readme) as readme_file:
 setup(
     name = package_name,
     version = version,
+    install_requires=['paramiko', 'python-ddns'],
     description = "Client for homeland social's coduit.",
     long_description = long_description,
     author = 'Ben Timby',

@@ -40,17 +40,6 @@ LOGGER.setLevel(logging.ERROR)
 LOGGER.addHandler(logging.StreamHandler())
 
 
-@contextmanager
-def with_ssh_params(SSH_KEY, SSH_HOST, SSH_PORT):
-    with tempfile.NamedTemporaryFile(mode='w') as t:
-        SSH_KEY.write_private_key(t)
-        t.flush()
-        ssh.SSH_KEY = t.name
-        ssh.SSH_HOST = SSH_HOST
-        ssh.SSH_PORT = SSH_PORT
-        yield
-
-
 class CancelError(Exception):
     pass
 
@@ -106,30 +95,28 @@ class TestServer:
         try:
             self.client_connected.set()
             t = paramiko.Transport(client)
-            #t.set_gss_host(socket.getfqdn(''))
             try:
-                t.load_server_moduli()
+                try:
+                    t.load_server_moduli()
 
-            except CancelError:
-                raise
+                except:
+                    LOGGER.exception('no moduli -- gex unsupported')
 
-            except:
-                LOGGER.exception('no moduli -- gex unsupported')
+                t.add_server_key(HOST_KEY)
+                t.start_server(server=SSHServer(self))
+                LOGGER.debug('accepting')
+                t.accept()
 
-            t.add_server_key(HOST_KEY)
-            t.start_server(server=SSHServer(self))
-            LOGGER.debug('accepting')
-            t.accept()
+                self.exec_request.wait()
+                self.port_forward.wait()
 
-            self.exec_request.wait()
-            self.port_forward.wait()
+                c = t.open_forwarded_tcpip_channel(
+                    ('127.0.0.1', 4321), ('127.0.0.1', 1234))
+                c.send('Hello world.')
+                self.data_sent.set()
 
-            c = t.open_forwarded_tcpip_channel(
-                ('127.0.0.1', 4321), ('127.0.0.1', 1234))
-            c.send('Hello world.')
-
-            self.data_sent.set()
-
+            finally:
+                t.close()
         finally:
             client.close()
 
@@ -144,11 +131,8 @@ class TestServer:
                     time.sleep(0.001)
                     continue
 
-                except CancelError:
-                    return
-
-                except Exception as e:
-                    LOGGER.exception('failure handling client')
+        except CancelError:
+            return
 
         finally:
             self._socket.close()
@@ -173,46 +157,85 @@ class LocalHost:
         self._socket.bind(('127.0.0.1', 0))
         self.port = self._socket.getsockname()[1]
         self.data_recv = threading.Event()
+        self._socket.setblocking(False)
         self._socket.listen(100)
         self._thread = None
         self._buffer = b''
         self._start()
 
     def _run(self):
-        while True:
-            client, addr = self._socket.accept()
-            self._buffer += client.recv(12)
-            self.data_recv.set()
+        try:
+            while True:
+                try:
+                    client, addr = self._socket.accept()
+                    try:
+                        self._buffer += client.recv(12)
+                        self.data_recv.set()
+
+                    finally:
+                        client.close()
+
+                except BlockingIOError:
+                    time.sleep(0.001)
+                    continue
+
+        except CancelError:
+            return
+
+        finally:
+            self._socket.close()
 
     def _start(self):
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
+
+    def stop(self):
+        async_raise(self._thread.ident, CancelError)
+        self._thread.join()
 
 
 class SSHServerTestCase(unittest.TestCase):
     def setUp(self):
         self.server = TestServer()
         self.server.started.wait()
+        self.local = LocalHost()
 
     def tearDown(self):
         self.server.stop()
+        self.local.stop()
+
+    def assertNoConnection(self):
+        self.assertFalse(
+            self.server.client_connected.is_set(), 'Connect received')
+
+    def assertConnection(self):
+        if not self.server.client_connected.wait(1):
+            self.fail('Client did not connect')
+
+    def assertExecRequest(self):
+        if not self.server.exec_request.wait(1):
+            self.fail('Exec request not received')
+
+    def assertPortForward(self):
+        if not self.server.port_forward.wait(1):
+            self.fail('Port forward not received')
+
+    def assertData(self, expected):
+        if not self.local.data_recv.wait(5):
+            self.fail('Data not received')
+        self.assertEqual(self.local._buffer, expected)
 
 
 class SSHTestCase(SSHServerTestCase):
     def test_ssh(self):
-        l = LocalHost()
-        self.assertFalse(self.server.client_connected.is_set())
-        with with_ssh_params(SSH_KEY=HOST_KEY, SSH_HOST='127.0.0.1', SSH_PORT=self.server.port):
-            ssh.add_tunnel('foo.com', '127.0.0.1', l.port)
-        if not self.server.client_connected.wait(1):
-            self.fail('Client did not connect')
-        if not self.server.exec_request.wait(1):
-            self.fail('Exec request not received')
-        if not self.server.port_forward.wait(1):
-            self.fail('Port forward not received')
-        if not l.data_recv.wait(5):
-            self.fail('Data not received')
-        self.assertEqual(l._buffer, b'Hello world.')
+        manager = ssh.create_manager(
+            host='127.0.0.1', port=self.server.port, key=HOST_KEY)
+        self.assertNoConnection()
+        manager.add_tunnel('foo.com', '127.0.0.1', self.local.port)
+        self.assertConnection()
+        self.assertExecRequest()
+        self.assertPortForward()
+        self.assertData(b'Hello world.')
 
 
 unittest.main()

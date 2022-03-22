@@ -171,25 +171,16 @@ def load_key(path=None):
     return key
 
 
-def add_tunnel(*args):
+def create_manager(host=SSH_HOST, port=SSH_PORT, user=SSH_USER, key=None):
     global MANAGER
     if MANAGER is None:
-        MANAGER = SSHManager(
-            host=SSH_HOST, port=SSH_PORT, user=SSH_USER, key=load_key(SSH_KEY))
-    MANAGER.add_tunnel(*args)
+        if key is None:
+            key = load_key(SSH_KEY)
+        MANAGER = SSHManager(host, port, user, key=key)
+    return MANAGER
 
 
-def del_tunnel(*args):
+def clear_manager():
     global MANAGER
-    if MANAGER is None:
-        return
-    MANAGER.del_tunnel(*args)
-    if len(MANAGER.tunnels) == 0:
-        MANAGER.disconnect()
-        MANAGER = None
-
-
-def poll():
-    if MANAGER is None:
-        return
-    MANAGER.poll()
+    MANAGER.disconnect()
+    MANAGER = None

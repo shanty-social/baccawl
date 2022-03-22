@@ -31,11 +31,12 @@ def _parse_args(args):
 
 
 def main(tunnels):
+    manager = ssh.create_manager()
     for tunnel in tunnels:
-        ssh.add_tunnel(*tunnel)
+        manager.add_tunnel(*tunnel)
 
     while True:
-        ssh.poll()
+        manager.poll()
         time.sleep(10)
 
 

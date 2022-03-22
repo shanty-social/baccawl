@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/shanty-social/baccawl/sshd"
+    "url": "https://github.com/shanty-social/conduit/sshd"
   },
   "author": "Ben Timby <btimby@gmail.com>",
   "license": "MIT",
@@ -19,6 +19,7 @@
     "jwt-encode": "^1.0.1",
     "local-ip": "^2.0.0",
     "nodemon": "^2.0.15",
+    "proxied-socket": "github:btimby/proxied-socket#proxy-v2",
     "ssh2": "^1.5.0"
   },
   "devDependencies": {

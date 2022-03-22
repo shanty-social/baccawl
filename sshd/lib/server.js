@@ -4,6 +4,7 @@ const { readFileSync } = require('fs');
 const { EventEmitter } = require('events');
 const { Server } = require('ssh2');
 const DEBUG = require('debug')('sshd:server');
+const ps = require('proxied-socket');
 const { verifyDomain, checkKey } = require('./client');
 
 const KEY_DIR = process.env.SSHD_HOST_KEY_DIR;
@@ -178,6 +179,11 @@ function start(port, host) {
 
   const s = new Server({
     hostKeys: readServerKeys(),
+  });
+  
+  s._srv = ps.wrapServer(s._srv, {
+    method: 'override',
+    format: 'proxy-v2',
   });
 
   s

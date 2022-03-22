@@ -113,8 +113,10 @@ class SSHManager:
         if not self.transport.is_alive():
             self.disconnect()
             self.connect()
+
         try:
             self.transport.send_ignore()
+
         except EOFError:
             self.disconnect()
             self.connect()
@@ -136,7 +138,12 @@ class SSHManager:
         return remote_port
 
     def add_tunnel(self, domain, addr, port):
-        self._check_connection()
+        try:
+            self._check_connection()
+
+        except paramiko.SSHException:
+            return
+
         remote_port = self._setup_tunnel(domain, addr, port)
         self._tunnels[domain] = (addr, port, remote_port)
 
@@ -145,7 +152,11 @@ class SSHManager:
         self.transport.cancel_port_forward('0.0.0.0', remote_port)
 
     def poll(self):
-        self._check_connection()
+        try:
+            self._check_connection()
+
+        except paramiko.SSHException:
+            return
 
 
 def load_key(path=None):

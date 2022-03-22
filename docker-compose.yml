@@ -6,9 +6,6 @@ networks:
       name: shared
   private:
 
-volumes:
-  ssh-keys:
-
 services:
   conduit-sshd:
     image: conduit/sshd
@@ -18,7 +15,7 @@ services:
     volumes:
       - ./docker/sshd/entrypoint.sh:/entrypoint.sh:ro
       - ./sshd:/app:ro
-      - ssh-keys:/etc/sshd/keys
+      - ./docker/sshd/host_keys:/etc/sshd/keys:ro
     networks:
       - shared
       - private

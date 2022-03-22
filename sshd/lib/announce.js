@@ -59,10 +59,12 @@ async function removed(domain) {
 
 function createHandler(domains) {
   return (s) => {
-    const reply = Object.keys(domains).join('\n');
+    const domainList = Object.keys(domains);
+    const reply = domainList.join('\n');
 
     s.on('error', (e) => DEBUG('Poll error: %O', e));
 
+    DEBUG('Sending list of %i domains', domainList.length);
     s.write(reply, (e) => {
       if (e) {
         DEBUG('Poll error: %O', e);

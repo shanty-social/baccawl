@@ -7,7 +7,7 @@ import logging
 
 import paramiko
 
-from client import ssh
+from conduit_client import ssh
 
 
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'DEBUG').upper()

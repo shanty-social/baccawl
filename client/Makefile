@@ -18,4 +18,4 @@ test: deps
 
 .PHONY: lint
 lint: deps
-	pipenv run flake8 client
+	pipenv run flake8 conduit_client

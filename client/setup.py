@@ -3,6 +3,7 @@
 import os
 from setuptools import setup
 
+
 package_name = 'conduit-client'
 version = '0.1'
 readme = os.path.join(os.path.dirname(__file__), 'README.rst')
@@ -21,7 +22,7 @@ setup(
     maintainer_email = 'btimby@gmail.com',
     url = 'http://github.com/shanty-social/conduit/',
     license = 'MIT',
-    packages = ['client'],
+    packages = ['conduit_client'],
     classifiers = (
           'Development Status :: 4 - Beta',
           'Intended Audience :: Developers',

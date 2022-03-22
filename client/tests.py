@@ -13,7 +13,7 @@ import paramiko
 from paramiko.py3compat import decodebytes
 from stopit import async_raise
 
-from client import dns, ssh
+from conduit_client import dns, ssh
 
 
 HOST_KEY_DATA = StringIO(

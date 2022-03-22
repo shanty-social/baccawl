@@ -58,10 +58,13 @@ function createHandler(domains, emitter) {
 function start(port, host, domains) {
   const emitter = new EventEmitter();
   const handler = createHandler(domains, emitter);
-  const s = ps.wrapServer(net.Server(handler), { method: 'override', format: 'proxy-v2' });
+  const server = ps.wrapServer(net.Server(handler), {
+    method: 'override',
+    format: 'proxy-v2',
+  });
 
-  s.listen(port, host, 100, () => {
-    const addr = s.address();
+  server.listen(port, host, 100, () => {
+    const addr = server.address();
     DEBUG('Proxy server listening at %s:%i', addr.address, addr.port);
   });
 

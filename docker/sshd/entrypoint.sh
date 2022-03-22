@@ -22,6 +22,9 @@ else
     CMD=node
 fi
 
+# Let haproxy come up and be added to DNS.
+sleep 3
+
 export HAPROXY_HOSTS=$(nslookup -type=a ${HAPROXY_HOST} | grep -v 127 | grep Address: | awk ' { printf "%s ", $2 } ' | xargs echo)
 
 cd /app

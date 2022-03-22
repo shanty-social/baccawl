@@ -177,19 +177,19 @@ function start(port, host) {
   const emitter = new EventEmitter();
   const handler = createConnectionHandler(emitter);
 
-  const s = new Server({
+  const server = new Server({
     hostKeys: readServerKeys(),
   });
 
-  s._srv = ps.wrapServer(s._srv, {
+  server._srv = ps.wrapServer(server._srv, {
     method: 'override',
     format: 'proxy-v2',
   });
 
-  s
+  server
     .on('connection', handler)
     .listen(port, host, () => {
-      const addr = s.address();
+      const addr = server.address();
       DEBUG('SSH server listening at %s:%i', addr.address, addr.port);
     });
 

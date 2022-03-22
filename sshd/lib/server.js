@@ -180,7 +180,7 @@ function start(port, host) {
   const s = new Server({
     hostKeys: readServerKeys(),
   });
-  
+
   s._srv = ps.wrapServer(s._srv, {
     method: 'override',
     format: 'proxy-v2',

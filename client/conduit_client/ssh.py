@@ -11,7 +11,7 @@ import paramiko
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
-SSH_KEY = os.getenv('SSH_KEY', '/etc/sshc/ssh.key')
+SSH_KEY_FILE = os.getenv('SSH_KEY_FILE', '/etc/sshc/ssh.key')
 SSH_HOST = os.getenv('SSH_HOST', 'ssh.homeland-social.com')
 SSH_PORT = int(os.getenv('SSH_PORT', 2222))
 SSH_USER = os.getenv('SSH_USER', 'default')
@@ -174,7 +174,7 @@ def create_manager(host=SSH_HOST, port=SSH_PORT, user=SSH_USER, key=None):
     global MANAGER
     if MANAGER is None:
         key = SSH_KEY if key is None else key
-        key = load_key(SSH_KEY)
+        key = load_key(SSH_KEY_FILE)
         MANAGER = SSHManager(host, port, user, key=key)
     return MANAGER
 

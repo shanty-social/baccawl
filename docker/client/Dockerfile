@@ -3,7 +3,7 @@ FROM python:3-alpine3.15
 ENV SSH_HOST=ssh.homeland-social.com \
     SSH_PORT=2222 \
     SSH_USER= \
-    SSH_KEY= \
+    SSH_KEY_FILE= \
     LOG_LEVEL=error
 
 ADD ./client /app

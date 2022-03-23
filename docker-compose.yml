@@ -48,7 +48,7 @@ services:
     environment:
       - SSH_HOST=conduit-haproxy
       - SSH_USER=0ac99280-5233-47d1-a43b-b02379e832d0
-      - SSH_KEY=/etc/client/client.key
+      - SSH_KEY_FILE=/etc/client/client.key
       - LOG_LEVEL=debug
 
   conduit-haproxy:

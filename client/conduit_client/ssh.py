@@ -98,7 +98,7 @@ class SSHManager:
         self.transport.set_keepalive(30)
 
         for domain, (addr, port, _) in self._tunnels.items():
-            remote_port = self._setup_tunnel(domain, addr, port)
+            self._setup_tunnel(domain, addr, port)
 
     def disconnect(self):
         if not self.connected:

@@ -173,8 +173,10 @@ def load_key(path=None):
 def create_manager(host=SSH_HOST, port=SSH_PORT, user=SSH_USER, key=None):
     global MANAGER
     if MANAGER is None:
-        key = SSH_KEY if key is None else key
-        key = load_key(SSH_KEY_FILE)
+        if key is None:
+            key = SSH_KEY_FILE
+        if isinstance(key, str):
+            key = load_key(key)
         MANAGER = SSHManager(host, port, user, key=key)
     return MANAGER
 

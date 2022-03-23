@@ -12,7 +12,7 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
 SSH_KEY = os.getenv('SSH_KEY', '/etc/sshc/ssh.key')
-SSH_HOST = os.getenv('SSH_HOST', 'homeland-social.com')
+SSH_HOST = os.getenv('SSH_HOST', 'ssh.homeland-social.com')
 SSH_PORT = int(os.getenv('SSH_PORT', 2222))
 SSH_USER = os.getenv('SSH_USER', 'default')
 BUFFER_SIZE = 1024 * 32
@@ -108,18 +108,19 @@ class SSHManager:
         self._ssh = None
 
     def _check_connection(self):
+        if len(self.tunnels) === 0:
+            self.disconnect()
+            return
         if not self.connected:
             self.connect()
         if not self.transport.is_alive():
             self.disconnect()
-            self.connect()
 
         try:
             self.transport.send_ignore()
 
         except EOFError:
             self.disconnect()
-            self.connect()
 
     def _setup_tunnel(self, domain, addr, port):
         self.transport.open_session()
@@ -135,7 +136,7 @@ class SSHManager:
             LOGGER.exception('error adding tunnel')
             raise
 
-        return remote_port
+        self._tunnels[domain] = (addr, port, remote_port)
 
     def add_tunnel(self, domain, addr, port):
         try:
@@ -144,11 +145,10 @@ class SSHManager:
         except paramiko.SSHException:
             return
 
-        remote_port = self._setup_tunnel(domain, addr, port)
-        self._tunnels[domain] = (addr, port, remote_port)
+        self._setup_tunnel(domain, addr, port)
 
     def del_tunnel(self, domain):
-        (_, _, remote_port) = self._tunnels.pop(domain)
+        remote_port = self._tunnels.pop(domain)[2]
         self.transport.cancel_port_forward('0.0.0.0', remote_port)
 
     def poll(self):
@@ -174,8 +174,8 @@ def load_key(path=None):
 def create_manager(host=SSH_HOST, port=SSH_PORT, user=SSH_USER, key=None):
     global MANAGER
     if MANAGER is None:
-        if key is None:
-            key = load_key(SSH_KEY)
+        key = SSH_KEY if key is None else key
+        key = load_key(SSH_KEY)
         MANAGER = SSHManager(host, port, user, key=key)
     return MANAGER
 

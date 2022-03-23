@@ -1,5 +1,11 @@
 FROM python:3-alpine3.15
 
+ENV SSH_HOST=ssh.homeland-social.com \
+    SSH_PORT=2222 \
+    SSH_USER= \
+    SSH_KEY= \
+    LOG_LEVEL=error
+
 ADD ./client /app
 ADD ./docker/client/entrypoint.py /entrypoint.py
 RUN chmod +x /entrypoint.py

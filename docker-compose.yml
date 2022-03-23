@@ -24,16 +24,8 @@ services:
     environment:
       - DEBUG=sshd*
       - AUTORELOAD=true
-      - SSHD_HOST_KEY_DIR=/etc/sshd/keys/
-      - SSHD_HOST=0.0.0.0
-      - SSHD_PORT=22
-      - PROXY_HOST=0.0.0.0
-      - PROXY_PORT=10088
-      - ANNOUNCE_HOST=0.0.0.0
-      - ANNOUNCE_PORT=1337
       - SHANTY_URL=http://shanty.local:8000
       - HAPROXY_HOST=conduit-haproxy
-      - HAPROXY_PORT=9999
 
   conduit-client:
     image: conduit/client
@@ -55,7 +47,6 @@ services:
       - conduit-haproxy
     environment:
       - SSH_HOST=conduit-haproxy
-      - SSH_PORT=2222
       - SSH_USER=0ac99280-5233-47d1-a43b-b02379e832d0
       - SSH_KEY=/etc/client/client.key
       - LOG_LEVEL=debug
@@ -72,15 +63,13 @@ services:
       - ./docker/haproxy/lua:/usr/local/etc/haproxy/lua:ro
       - ./docker/haproxy/haproxy.cfg:/etc/haproxy/haproxy.cfg:ro
     networks:
-      - private
+      shared:
+        ipv4_address: 192.168.100.201
+      private:
     depends_on:
       - conduit-sshd
     ports:
       - 10088:80
-    environment:
-      - TUNNELS_MAP=/usr/local/etc/haproxy/tunnels.map
-      - SSHD_BACKEND=sshd
-      - ANNOUNCE_PORT=1337
 
   conduit-echo:
     image: jmalloc/echo-server

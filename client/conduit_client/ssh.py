@@ -99,7 +99,6 @@ class SSHManager:
 
         for domain, (addr, port, _) in self._tunnels.items():
             remote_port = self._setup_tunnel(domain, addr, port)
-            self._tunnels[domain] = (addr, port, remote_port)
 
     def disconnect(self):
         if not self.connected:
@@ -107,8 +106,8 @@ class SSHManager:
         self._ssh.close()
         self._ssh = None
 
-    def _check_connection(self):
-        if len(self.tunnels) === 0:
+    def _check_connection(self, connect=False):
+        if not connect and len(self.tunnels) == 0:
             self.disconnect()
             return
         if not self.connected:
@@ -140,7 +139,7 @@ class SSHManager:
 
     def add_tunnel(self, domain, addr, port):
         try:
-            self._check_connection()
+            self._check_connection(connect=True)
 
         except paramiko.SSHException:
             return

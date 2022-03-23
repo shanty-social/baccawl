@@ -9,7 +9,7 @@ ENV DEBUG= \
     PROXY_PORT=10088 \
     ANNOUNCE_HOST=0.0.0.0 \
     ANNOUNCE_PORT=1337 \
-    SHANTY_URL=http://www.homeland-social.com \
+    SHANTY_URL=https://www.homeland-social.com \
     HAPROXY_HOST=haproxy \
     HAPROXY_PORT=9999
 

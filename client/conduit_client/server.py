@@ -24,6 +24,12 @@ LOGGER = logging.getLogger()
 LOGGER.addHandler(logging.NullHandler())
 
 
+def _set_if_not_none(d, key, value):
+    if value is None:
+        return
+    d[key] = value
+
+
 class Command:
     COMMAND_NOOP = 0
     COMMAND_DEL = 1
@@ -134,7 +140,12 @@ class SSHManagerServer:
 
 
 class SSHManagerClient:
-    def __init__(self):
+    def __init__(self, host=None, port=None, user=None, key=None):
+        self._env = {}
+        _set_if_not_none(self._env, 'SSH_HOST', host)
+        _set_if_not_none(self._env, 'SSH_PORT', port)
+        _set_if_not_none(self._env, 'SSH_USER', user)
+        _set_if_not_none(self._env, 'SSH_KEY_FILE', key)
         self._sock_name = None
         self._listen = None
         self._socket = None
@@ -151,13 +162,16 @@ class SSHManagerClient:
             self._listen.close()
             self._listen = None
 
-    def _start_server(self, env=None):
+    def _start_server(self):
         self._sock_name = tempfile.mktemp()
         self._listen = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self._listen.bind(self._sock_name)
         self._listen.listen()
         self._server = subprocess.Popen(
-            [PYTHON, '-m', MODULE_NAME, self._sock_name], cwd=MODULE_PATH, env=env)
+            [PYTHON, '-m', MODULE_NAME, self._sock_name],
+            cwd=MODULE_PATH,
+            env=self._env
+        )
         self._socket, _ = self._listen.accept()
 
     def disconnect(self, timeout=None):

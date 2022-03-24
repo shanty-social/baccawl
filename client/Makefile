@@ -13,7 +13,7 @@ deps: .venv
 
 .PHONY: test
 test: deps
-	pipenv run python3 -m tests
+	pipenv run python3 -m unittest tests
 
 
 .PHONY: lint

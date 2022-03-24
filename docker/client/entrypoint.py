@@ -7,7 +7,7 @@ import logging
 
 import paramiko
 
-from conduit_client import ssh
+from conduit_client.server import SSHManagerClient
 
 
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'DEBUG').upper()
@@ -31,12 +31,12 @@ def _parse_args(args):
 
 
 def main(tunnels):
-    manager = ssh.create_manager()
-    for tunnel in tunnels:
-        manager.add_tunnel(*tunnel)
+    manager = SSHManagerClient()
+
+    for hostname, addr, port in tunnels:
+        manager.add_tunnel(hostname, addr, port)
 
     while True:
-        manager.poll()
         time.sleep(10)
 
 

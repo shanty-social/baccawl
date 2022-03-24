@@ -11,7 +11,7 @@ import paramiko
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
-SSH_KEY_FILE = os.getenv('SSH_KEY_FILE', '/etc/sshc/ssh.key')
+SSH_KEY_FILE = os.getenv('SSH_KEY_FILE', None)
 SSH_HOST = os.getenv('SSH_HOST', 'ssh.homeland-social.com')
 SSH_PORT = int(os.getenv('SSH_PORT', 2222))
 SSH_USER = os.getenv('SSH_USER', 'default')
@@ -138,12 +138,7 @@ class SSHManager:
         self._tunnels[domain] = (addr, port, remote_port)
 
     def add_tunnel(self, domain, addr, port):
-        try:
-            self._check_connection(connect=True)
-
-        except paramiko.SSHException:
-            return
-
+        self._check_connection(connect=True)
         self._setup_tunnel(domain, addr, port)
 
     def del_tunnel(self, domain):
@@ -171,17 +166,8 @@ def load_key(path=None):
 
 
 def create_manager(host=SSH_HOST, port=SSH_PORT, user=SSH_USER, key=None):
-    global MANAGER
-    if MANAGER is None:
-        if key is None:
-            key = SSH_KEY_FILE
-        if isinstance(key, str):
-            key = load_key(key)
-        MANAGER = SSHManager(host, port, user, key=key)
-    return MANAGER
-
-
-def clear_manager():
-    global MANAGER
-    MANAGER.disconnect()
-    MANAGER = None
+    if key is None:
+        key = SSH_KEY_FILE
+    if isinstance(key, str):
+        key = load_key(key)
+    return SSHManager(host, port, user, key=key)

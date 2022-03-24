@@ -13,7 +13,7 @@ import paramiko
 from paramiko.py3compat import decodebytes
 from stopit import async_raise
 
-from conduit_client import dns, ssh
+from conduit_client import ssh
 
 
 HOST_KEY_DATA = StringIO(
@@ -236,6 +236,3 @@ class SSHTestCase(SSHServerTestCase):
         self.assertExecRequest()
         self.assertPortForward()
         self.assertData(b'Hello world.')
-
-
-unittest.main()

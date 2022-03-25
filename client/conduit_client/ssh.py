@@ -138,11 +138,21 @@ class SSHManager:
         self._tunnels[domain] = (addr, port, remote_port)
 
     def add_tunnel(self, domain, addr, port):
+        # Check if there is an existing tunnel for this domain.
+        existing = self._tunnels.get(domain)
+        if existing:
+            if existing[:2] == [addr, port]:
+                # Same don't make any change.
+                return
+            self.del_tunnel(domain)
         self._check_connection(connect=True)
         self._setup_tunnel(domain, addr, port)
 
     def del_tunnel(self, domain):
-        remote_port = self._tunnels.pop(domain)[2]
+        try:
+            remote_port = self._tunnels.pop(domain)[2]
+        except KeyError:
+            return
         self.transport.cancel_port_forward('0.0.0.0', remote_port)
 
     def poll(self):

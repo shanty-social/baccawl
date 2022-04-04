@@ -12,6 +12,7 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
 SSH_KEY_FILE = os.getenv('SSH_KEY_FILE', None)
+SSH_HOST_KEYS_FILE = os.getenv('SSH_HOST_KEYS_FILES', None)
 SSH_HOST = os.getenv('SSH_HOST', 'ssh.homeland-social.com')
 SSH_PORT = int(os.getenv('SSH_PORT', 2222))
 SSH_USER = os.getenv('SSH_USER', 'default')
@@ -82,7 +83,11 @@ class SSHManager:
         LOGGER.debug(
             'Establishing ssh connection to: %s:%i', self._host, self._port)
         self._ssh = paramiko.SSHClient()
-        self._ssh.set_missing_host_key_policy(paramiko.WarningPolicy())
+        if SSH_HOST_KEYS_FILE:
+            self._ssh.load_host_keys(SSH_HOST_KEYS_FILE)
+            self._ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
+        else:
+            self._ssh.set_missing_host_key_policy(paramiko.WarningPolicy())
         try:
             self._ssh.connect(
                 hostname=self._host, port=self._port, username=self._user,
@@ -173,6 +178,12 @@ def load_key(path=None):
     key = paramiko.RSAKey.generate(2048)
     key.write_private_key_file(path)
     return key
+
+
+def save_host_keys(path, keys):
+    "Saves host keys where ssh client will look for them."
+    with open(path, 'w') as f:
+        f.write(keys.join('\n'))
 
 
 def create_manager(host=SSH_HOST, port=SSH_PORT, user=SSH_USER, key=None):

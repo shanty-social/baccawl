@@ -139,12 +139,14 @@ class SSHManagerServer:
 
 
 class SSHManagerClient:
-    def __init__(self, host=None, port=None, user=None, key=None):
+    def __init__(self, host=None, port=None, user=None, key=None,
+                 host_keys=None):
         self._env = {}
         _set_if_not_none(self._env, 'SSH_HOST', host)
         _set_if_not_none(self._env, 'SSH_PORT', port)
         _set_if_not_none(self._env, 'SSH_USER', user)
         _set_if_not_none(self._env, 'SSH_KEY_FILE', key)
+        _set_if_not_none(self._env, 'SSH_HOST_KEYS_FILE', host_keys)
         self._sock_name = None
         self._listen = None
         self._socket = None

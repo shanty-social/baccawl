@@ -168,20 +168,24 @@ class SSHManager:
             return
 
 
-def load_key(path=None):
+def load_key(path=SSH_KEY_FILE):
     "Generate a client key for use with the library."
     if path is not None:
         if isfile(path):
             LOGGER.debug('Loading key from: %s', path)
             return paramiko.RSAKey.from_private_key_file(path)
-    LOGGER.debug('Saving new to key: %s', path)
+    LOGGER.info('Generating new private key')
     key = paramiko.RSAKey.generate(2048)
-    key.write_private_key_file(path)
+    if path is not None:
+        LOGGER.debug('Saving new to key: %s', path)
+        key.write_private_key_file(path)
     return key
 
 
-def save_host_keys(path, keys):
+def save_host_keys(keys, path=SSH_HOST_KEYS_FILE):
     "Saves host keys where ssh client will look for them."
+    if path is None:
+        raise FileNotFoundError('SSH_HOST_KEYS_FILE file not defined')
     with open(path, 'w') as f:
         f.write(keys.join('\n'))
 

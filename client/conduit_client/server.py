@@ -26,7 +26,7 @@ def _set_if_not_none(d, key, value):
     value = value if value is not None else os.getenv(key)
     if value is None:
         return
-    d[key] = value
+    d[key] = str(value)
 
 
 class Command:

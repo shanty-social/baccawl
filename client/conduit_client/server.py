@@ -151,6 +151,7 @@ class SSHManagerClient:
         self._listen = None
         self._socket = None
         self._server = None
+        self._lock = threading.Lock()
 
     def __del__(self):
         self.close()
@@ -164,6 +165,8 @@ class SSHManagerClient:
             self._listen = None
 
     def _start_server(self):
+        if self._server is not None and self._server.poll() is None:
+            return
         self._sock_name = tempfile.mktemp()
         self._listen = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self._listen.bind(self._sock_name)
@@ -183,10 +186,13 @@ class SSHManagerClient:
         self._server = None
 
     def _send_command(self, cmd):
-        if self._server is None:
+        self._lock.acquire(timeout=1.0)
+        try:
             self._start_server()
-        cmd.send(self._socket)
-        r = Command.unpack(self._socket, timeout=1.0)
+            cmd.send(self._socket)
+            r = Command.unpack(self._socket, timeout=1.0)
+        finally:
+            self._lock.release()
         assert r.command == Command.COMMAND_NOOP, 'Missing acknowledgment'
 
     def ping(self):

@@ -187,7 +187,7 @@ def save_host_keys(keys, path=SSH_HOST_KEYS_FILE):
     if path is None:
         raise FileNotFoundError('SSH_HOST_KEYS_FILE file not defined')
     with open(path, 'w') as f:
-        f.write(keys.join('\n'))
+        f.write('\n'.join(keys))
 
 
 def create_manager(host=SSH_HOST, port=SSH_PORT, user=SSH_USER, key=None):

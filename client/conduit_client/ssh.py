@@ -29,14 +29,14 @@ class Tunnel:
         self.remote_port = remote_port
 
     def __str__(self):
-        if self.remote_port:
-            remote_port = f', remote_port={self.remote_port}'
-        return (f'Tunnel, domain: {self.domain}, host: {self.addr}:{self.port}'
+        remote_port = f', remote_port={self.remote_port}' \
+            if self.remote_port else ''
+        return (f'Tunnel, domain: {self.domain}, addr: {self.addr}:{self.port}'
                f'{remote_port}')
 
     def __eq__(self, other):
         return self.domain == other.domain and \
-               self.host == other.host and \
+               self.addr == other.addr and \
                self.port == other.port
 
 
@@ -66,7 +66,7 @@ class Forwarder:
                 except KeyError:
                     continue
                 try:
-                    data = r.recv(1024)
+                    data = r.recv(BUFFER_SIZE)
                 except socket.error:
                     self._close(r, s)
                     continue

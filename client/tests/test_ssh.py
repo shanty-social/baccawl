@@ -14,6 +14,7 @@ from paramiko.py3compat import decodebytes
 from stopit import async_raise
 
 from conduit_client import ssh
+from conduit_client.ssh import Tunnel
 
 
 HOST_KEY_DATA = StringIO(
@@ -37,7 +38,7 @@ HOST_KEY = paramiko.RSAKey(file_obj=HOST_KEY_DATA)
 
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.ERROR)
-LOGGER.addHandler(logging.StreamHandler())
+LOGGER.addHandler(logging.NullHandler())
 
 
 class CancelError(Exception):
@@ -231,7 +232,7 @@ class SSHTestCase(SSHServerTestCase):
         manager = ssh.create_manager(
             host='127.0.0.1', port=self.server.port, key=HOST_KEY)
         self.assertNoConnection()
-        manager.add_tunnel('foo.com', '127.0.0.1', self.local.port)
+        manager.add_tunnel(Tunnel('foo.com', '127.0.0.1', self.local.port))
         self.assertConnection()
         self.assertExecRequest()
         self.assertPortForward()

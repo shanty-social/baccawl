@@ -2,11 +2,18 @@ import os
 import tempfile
 import socket
 import unittest
+import logging
 from io import BytesIO
 
 from conduit_client.server import (
     SSHManagerClient, SSHManagerServer, Command, DomainCommand, TunnelCommand,
 )
+from conduit_client.ssh import Tunnel
+
+
+LOGGER = logging.getLogger()
+LOGGER.setLevel(logging.ERROR)
+LOGGER.addHandler(logging.NullHandler())
 
 
 class BytesSocket(BytesIO):
@@ -16,10 +23,12 @@ class BytesSocket(BytesIO):
 
 class CommandTestCase(unittest.TestCase):
     SOCKET_TUNNEL = BytesSocket(
-        b'\x7f\x00\x80\x04\x95t\x00\x00\x00\x00\x00\x00\x00\x8c\x15conduit_'
-        b'client.server\x94\x8c\rTunnelCommand\x94\x93\x94)\x81\x94}\x94(\x8c'
-        b'\x07command\x94K\x02\x8c\x07address\x94\x8c\x0810.0.1.2\x94\x8c\x04'
-        b'port\x94M\xd2\x04\x8c\x06domain\x94\x8c\nfoobar.com\x94ub.'
+        b'\xbc\x00\x80\x04\x95\xb1\x00\x00\x00\x00\x00\x00\x00\x8c\x15conduit'
+        b'_client.server\x94\x8c\rTunnelCommand\x94\x93\x94)\x81\x94}\x94(\x8c'
+        b'\x07command\x94K\x02\x8c\x06tunnel\x94\x8c\x12conduit_client.ssh\x94'
+        b'\x8c\x06Tunnel\x94\x93\x94)\x81\x94}\x94(\x8c\x06domain\x94\x8c\nfoo'
+        b'bar.com\x94\x8c\x04addr\x94\x8c\x0810.0.1.2\x94\x8c\x04port\x94M\xd2'
+        b'\x04\x8c\x0bremote_port\x94Nubub.'
     )
     SOCKET_DOMAIN = BytesSocket(
         b'\x92\x00\x80\x04\x95\x87\x00\x00\x00\x00\x00\x00\x00\x8c\x15conduit_'
@@ -32,9 +41,7 @@ class CommandTestCase(unittest.TestCase):
     def test_pack_tunnel(self):
         packed = TunnelCommand(
             Command.COMMAND_ADD,
-            '10.0.1.2',
-            1234,
-            'foobar.com'
+            Tunnel('foobar.com', '10.0.1.2', 1234)
         ).pack()
         reference = self.SOCKET_TUNNEL.getvalue()
         self.assertEqual(len(reference), len(packed))
@@ -43,9 +50,9 @@ class CommandTestCase(unittest.TestCase):
     def test_unpack_tunnel(self):
         command = Command.unpack(self.SOCKET_TUNNEL)
         self.assertIsInstance(command, TunnelCommand)
-        self.assertEqual(command.address, '10.0.1.2')
-        self.assertEqual(command.port, 1234)
-        self.assertEqual(command.domain, 'foobar.com')
+        self.assertEqual(command.tunnel.addr, '10.0.1.2')
+        self.assertEqual(command.tunnel.port, 1234)
+        self.assertEqual(command.tunnel.domain, 'foobar.com')
 
     def test_pack_domain(self):
         packed = DomainCommand(

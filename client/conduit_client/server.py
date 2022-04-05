@@ -12,6 +12,7 @@ from select import select
 from os.path import dirname, basename
 
 from conduit_client import ssh
+from conduit_client.ssh import Tunnel
 
 
 PYTHON = shutil.which('python3')
@@ -34,12 +35,14 @@ class Command:
     COMMAND_DEL = 1
     COMMAND_ADD = 2
     COMMAND_STOP = 3
+    COMMAND_LIST = 4
 
     COMMANDS = {
         COMMAND_NOOP: 'noop',
         COMMAND_DEL: 'del',
         COMMAND_ADD: 'add',
         COMMAND_STOP: 'stop',
+        COMMAND_LIST: 'list',
     }
 
     def __init__(self, command):
@@ -60,8 +63,7 @@ class Command:
                 raise TimeoutError('Socket not readable')
         data = s.recv(2)
         if not data:
-            LOGGER.error('EOF encountered, exiting')
-            os._exit(1)
+            raise EOFError()
         size = struct.unpack('H', data)[0]
         return pickle.loads(s.recv(size))
 
@@ -72,7 +74,7 @@ class Command:
     def send(self, s):
         s.send(self.pack())
 
-    def apply(self, manager):
+    def apply(self, manager, server):
         pass
 
 
@@ -83,63 +85,80 @@ class DomainCommand(Command):
         self.arguments = arguments
 
 
-class TunnelCommand(Command):
-    def __init__(self, command, address, port, domain):
-        super().__init__(command)
-        self.address = address
-        self.port = port
-        self.domain = domain
+class ListCommand(Command):
+    def apply(self, manager, socket):
+        for tunnel in manager.tunnels.values():
+            TunnelCommand(COMMAND_ADD, tunnel).send(socket)
 
-    def apply(self, manager):
+
+class TunnelCommand(Command):
+    def __init__(self, command, tunnel):
+        super().__init__(command)
+        self.tunnel = tunnel
+
+    def apply(self, manager, socket):
         if self.command == Command.COMMAND_ADD:
-            manager.add_tunnel(self.domain, self.address, self.port)
+            manager.add_tunnel(self.tunnel)
         elif self.command == Command.COMMAND_DEL:
-            manager.del_tunnel(self.domain)
+            manager.del_tunnel(self.tunnel)
 
 
 class SSHManagerServer:
     def __init__(self, sock_name):
         self._sock_name = sock_name
         self._queue = queue.Queue()
+        self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self._reader = threading.Thread(target=self._read, daemon=True)
         self._reader.start()
+        self._manager = ssh.create_manager()
 
     def _read(self):
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        noop = Command(Command.COMMAND_NOOP)
         try:
-            s.connect(self._sock_name)
+            self._socket.connect(self._sock_name)
 
             while True:
                 try:
-                    cmd = Command.unpack(s)
+                    cmd = Command.unpack(self._socket)
+
+                except EOFError:
+                    LOGGER.error('EOF encountered, exiting')
+                    os._exit(1)
 
                 except Exception:
                     LOGGER.exception('Error reading command.')
                     continue
 
                 LOGGER.debug('Received command: %s, acking', cmd)
-                Command(Command.COMMAND_NOOP).send(s)
 
-                if cmd.command == Command.COMMAND_STOP:
+                if cmd.command == Command.COMMAND_LIST:
+                    cmd.apply(self._manager, self._socket)
+                    noop.send(self._socket)
+                    continue
+
+                elif cmd.command == Command.COMMAND_STOP:
                     LOGGER.info('Exiting')
                     os._exit(0)
 
+                noop.send(self._socket)
                 self._queue.put(cmd)
 
         finally:
-            s.close()
+            self._socket.close()
 
     def run_forever(self):
-        manager = ssh.create_manager()
         while True:
-            manager.poll()
+            self._manager.poll()
             try:
                 command = self._queue.get(timeout=10.0)
             except queue.Empty:
                 continue
             if not isinstance(command, TunnelCommand):
                 continue
-            command.apply(manager)
+            try:
+                command.apply(self._manager, self._socket)
+            except Exception:
+                LOGGER.exception('Error handling command')
 
 
 class SSHManagerClient:
@@ -183,39 +202,49 @@ class SSHManagerClient:
         self._socket, _ = self._listen.accept()
 
     def disconnect(self, timeout=None):
-        self._send_command(Command(Command.COMMAND_STOP))
+        try:
+            self._send_command(Command(Command.COMMAND_STOP))
+        except EOFError:
+            pass
         self.close()
         os.remove(self._sock_name)
         self._server.wait(timeout)
         self._server = None
 
     def _send_command(self, cmd):
+        reply = []
         self._lock.acquire(timeout=1.0)
         try:
             self._start_server()
             cmd.send(self._socket)
-            r = Command.unpack(self._socket, timeout=1.0)
+
+            while True:
+                cmd = Command.unpack(self._socket, timeout=1.0)
+                if cmd.command == Command.COMMAND_NOOP:
+                    break
+                reply.append(cmd)
+
+            return reply
+
         finally:
             self._lock.release()
-        assert r.command == Command.COMMAND_NOOP, 'Missing acknowledgment'
 
     def ping(self):
         self._send_command(Command(Command.COMMAND_NOOP))
 
-    def add_tunnel(self, domain, address, port):
+    def add_tunnel(self, tunnel):
         self._send_command(
-            TunnelCommand(Command.COMMAND_ADD, address, port, domain)
+            TunnelCommand(
+                Command.COMMAND_ADD, tunnel)
         )
 
     def del_tunnel(self, domain):
         self._send_command(
-            TunnelCommand(Command.COMMAND_DEL, None, None, domain)
+            TunnelCommand(Command.COMMAND_DEL, tunnel)
         )
 
-
-def start_server(sock_name):
-    LOGGER.addHandler(logging.StreamHandler())
-    LOGGER.setLevel(logging.DEBUG)
-
-    server = SSHManagerServer(sock_name)
-    server.run_forever()
+    def list_tunnels(self):
+        reply = self._send_command(
+            ListCommand(Command.COMMAND_LIST)
+        )
+        return [r.tunnel for r in reply]

@@ -1,5 +1,18 @@
 import sys
+import logging
 
-from conduit_client.server import start_server
+from conduit_client.server import SSHManagerServer
 
-start_server(sys.argv[1])
+
+LOGGER = logging.getLogger()
+
+
+def main(sock_name):
+    server = SSHManagerServer(sock_name)
+    server.run_forever()
+
+
+if __name__ == '__main__':
+    LOGGER.addHandler(logging.StreamHandler())
+    LOGGER.setLevel(logging.DEBUG)
+    main(sys.argv[1])

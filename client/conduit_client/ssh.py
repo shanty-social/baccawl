@@ -22,7 +22,7 @@ MANAGER = None
 
 
 class Tunnel:
-    def __init__(self, domain, addr, port, remote_port=None):
+    def __init__(self, domain, addr=None, port=None, remote_port=None):
         self.domain = domain
         self.addr = addr
         self.port = port
@@ -181,10 +181,9 @@ class SSHManager:
 
         self._tunnels[tunnel.domain] = tunnel
 
-    def add_tunnel(self, domain, addr, port):
+    def add_tunnel(self, tunnel):
         # Check if there is an existing tunnel for this domain.
-        tunnel = Tunnel(domain, addr, port)
-        existing = self._tunnels.get(domain)
+        existing = self._tunnels.get(tunnel.domain)
         if existing:
             LOGGER.debug(
                 'Comparing tunnels: (%s) == (%s)',
@@ -193,13 +192,13 @@ class SSHManager:
             if existing == tunnel:
                 LOGGER.debug('Matched, leaving')
                 return
-            self.del_tunnel(domain)
+            self.del_tunnel(tunnel)
         self._check_connection(connect=True)
         self._setup_tunnel(tunnel)
 
-    def del_tunnel(self, domain):
+    def del_tunnel(self, tunnel):
         try:
-            tunnel = self._tunnels.pop(domain)
+            tunnel = self._tunnels.pop(tunnel.domain)
         except KeyError:
             return
         self.transport.cancel_port_forward('0.0.0.0', tunnel.remote_port)

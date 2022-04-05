@@ -21,39 +21,47 @@ DISABLED_ALGORITHMS = dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"])
 MANAGER = None
 
 
-def _forward(server, channel):
-    LOGGER.debug('Tunnel opened')
-    try:
+class Forwarder:
+    "Uses select to forward data over tunnels."
+    def __init__(self):
+        self._handles = {}
+        self._event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _close(self, *socks):
+        for s in socks:
+            try:
+                s.close()
+            except socket.error:
+                pass
+            self._handles.pop(s, None)
+
+    def _run(self):
         while True:
-            r = select([server, channel], [], [])[0]
-            if server in r:
-                data = server.recv(1024)
+            if not self._handles:
+                self._event.wait()
+                self._event.clear()
+            for r in select(self._handles, [], [])[0]:
+                try:
+                    s = self._handles[r]
+                except KeyError:
+                    continue
+                data = r.recv(1024)
                 if len(data) == 0:
-                    break
-                channel.send(data)
-            if channel in r:
-                data = channel.recv(1024)
-                if len(data) == 0:
-                    break
-                server.send(data)
+                    self._close(r, s)
+                else:
+                    s.send(data)
 
-    finally:
-        channel.close()
-        server.close()
-        LOGGER.debug('Tunnel closed')
-
-
-def _create_forward_handler(domain, addr, port):
-    def _handler(channel, src_addr, dst_addr):
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        LOGGER.debug('connecting to %s:%i for %s', addr, port, domain)
-        server.connect((addr, port))
-
-        t = threading.Thread(
-            target=_forward, args=(server, channel), daemon=True)
-        t.start()
-
-    return _handler
+    def create_handler(self, domain, addr, port):
+        def _handler(channel, src_addr, dst_addr):
+            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            LOGGER.debug('connecting to %s:%i for %s', addr, port, domain)
+            server.connect((addr, port))
+            self._handles[server] = channel
+            self._handles[channel] = server
+            self._event.set()
+        return _handler
 
 
 class SSHManager:
@@ -64,10 +72,29 @@ class SSHManager:
         self._key = key
         self._ssh = None
         self._tunnels = {}
+        self._forwarder = Forwarder()
 
     @property
     def connected(self):
-        return self._ssh is not None
+        if self._ssh is None:
+            return False
+
+        try:
+            if not self.transport.is_alive():
+                self.disconnect()
+                return False
+
+        except Exception:
+            LOGGER.exception('Not connected')
+            return False
+
+        try:
+            self.transport.send_ignore()
+
+        except EOFError:
+            LOGGER.exception('Not connected')
+            self.disconnect()
+            return False
 
     @property
     def transport(self):
@@ -115,23 +142,14 @@ class SSHManager:
         if not connect and len(self.tunnels) == 0:
             self.disconnect()
             return
-        if not self.connected:
-            self.connect()
-        if not self.transport.is_alive():
-            self.disconnect()
-
-        try:
-            self.transport.send_ignore()
-
-        except EOFError:
-            self.disconnect()
+        self.connect()
 
     def _setup_tunnel(self, domain, addr, port):
         self.transport.open_session()
         remote_port = self.transport.request_port_forward(
             '0.0.0.0',
             0,
-            _create_forward_handler(domain, addr, port)
+            self._forwarder.create_handler(domain, addr, port),
         )
         try:
             self._ssh.exec_command(f'tunnel {domain} {remote_port}')
@@ -146,8 +164,14 @@ class SSHManager:
         # Check if there is an existing tunnel for this domain.
         existing = self._tunnels.get(domain)
         if existing:
+            LOGGER.debug(
+                'Comparing tunnels: (%s:%i) == (%s:%i)',
+                addr,
+                port,
+                *existing[:2],
+            )
             if existing[:2] == [addr, port]:
-                # Same don't make any change.
+                LOGGER.debug('Matched, leaving')
                 return
             self.del_tunnel(domain)
         self._check_connection(connect=True)

@@ -54,30 +54,42 @@ function clientAuthenticationHandler(ctx, clientInfo) {
   }
 }
 
-function clientPortRequestHandler(ctx, clientInfo) {
+function clientPortRequestHandler(ctx, emitter, clientInfo) {
   DEBUG('Received request: %s, %O', ctx.name, ctx.info);
 
   const { info } = ctx;
   let { bindPort } = info;
-  if (ctx.name !== 'tcpip-forward' || bindPort !== 0) {
-    DEBUG('Request rejected');
+
+  if (ctx.name === 'tcpip-forward' && bindPort === 0) {
+    DEBUG('TCP forwarding request received');
+
+    // Client needs a port between 1 and 65534. We use it only to match up the
+    // exec request that we expect to come directly.
+    bindPort = Math.round(Math.random() * 65533) + 1;
+    clientInfo.tunnels.push({
+      bindAddr: info.bindAddr,
+      bindPort,
+      client: ctx.client,
+      domain: null,
+    });
+
+    ctx.accept(bindPort);
+  } else if (ctx.name === 'cancel-tcpip-forward' && bindPort) {
+    DEBUG('TCP forwarding cancellation request received');
+
+    const i = clientInfo.tunnels.findIndex((o) => o.bindPort === bindPort);
+    if (i === -1) {
+      DEBUG('Request %s rejected, invalid bindPort: %i', bindPort);
+      ctx.reject();
+      return;
+    }
+    const tunnelInfo = clientInfo.tunnels.splice(i, 1)[0];
+    emitter.emit('tunnel:close', tunnelInfo);
+    ctx.accept();
+  } else {
+    DEBUG('Request %s rejected, bindPort: %i', ctx.name, bindPort);
     ctx.reject();
-    return;
   }
-
-  DEBUG('TCP forwarding request received');
-
-  // Client needs a port between 1 and 65534. We use it only to match up the
-  // exec request that we expect to come directly.
-  bindPort = Math.round(Math.random() * 65533) + 1;
-  clientInfo.tunnels.push({
-    bindAddr: info.bindAddr,
-    bindPort,
-    client: ctx.client,
-    domain: null,
-  });
-
-  ctx.accept(bindPort);
 }
 
 function clientSessionHandler(accept, reject, emitter, clientInfo) {
@@ -159,7 +171,7 @@ function createConnectionHandler(emitter) {
       .on('request', (accept, reject, name, info) => {
         clientPortRequestHandler({
           accept, reject, name, info, client,
-        }, clientInfo);
+        }, emitter, clientInfo);
       })
       .on('session', (accept, reject) => {
         clientSessionHandler(accept, reject, emitter, clientInfo);

@@ -58,7 +58,11 @@ class Command:
             r = select([s], [], [], timeout)[0]
             if s not in r:
                 raise TimeoutError('Socket not readable')
-        size = struct.unpack('H', s.recv(2))[0]
+        data = s.recv(2)
+        if not data:
+            LOGGER.error('EOF encountered, exiting')
+            os._exit(1)
+        size = struct.unpack('H', data)[0]
         return pickle.loads(s.recv(size))
 
     def pack(self):

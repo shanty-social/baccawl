@@ -21,6 +21,25 @@ DISABLED_ALGORITHMS = dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"])
 MANAGER = None
 
 
+class Tunnel:
+    def __init__(self, domain, addr, port, remote_port=None):
+        self.domain = domain
+        self.addr = addr
+        self.port = port
+        self.remote_port = remote_port
+
+    def __str__(self):
+        if self.remote_port:
+            remote_port = f', remote_port={self.remote_port}'
+        return (f'Tunnel, domain: {self.domain}, host: {self.addr}:{self.port}'
+               f'{remote_port}')
+
+    def __eq__(self, other):
+        return self.domain == other.domain and \
+               self.host == other.host and \
+               self.port == other.port
+
+
 class Forwarder:
     "Uses select to forward data over tunnels."
     def __init__(self):
@@ -39,24 +58,27 @@ class Forwarder:
 
     def _run(self):
         while True:
-            if not self._handles:
-                self._event.wait()
+            if not self._handles and self._event.wait():
                 self._event.clear()
             for r in select(self._handles, [], [])[0]:
                 try:
                     s = self._handles[r]
                 except KeyError:
                     continue
-                data = r.recv(1024)
+                try:
+                    data = r.recv(1024)
+                except socket.error:
+                    self._close(r, s)
+                    continue
                 if len(data) == 0:
                     self._close(r, s)
-                else:
-                    s.send(data)
+                    continue
+                s.send(data)
 
     def create_handler(self, domain, addr, port):
-        def _handler(channel, src_addr, dst_addr):
-            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        def _handler(channel, *args):
             LOGGER.debug('connecting to %s:%i for %s', addr, port, domain)
+            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             server.connect((addr, port))
             self._handles[server] = channel
             self._handles[channel] = server
@@ -81,17 +103,14 @@ class SSHManager:
 
         try:
             if not self.transport.is_alive():
+                LOGGER.debug('Transport not alive')
                 self.disconnect()
                 return False
 
-        except Exception:
-            LOGGER.exception('Not connected')
-            return False
-
-        try:
             self.transport.send_ignore()
+            return True
 
-        except EOFError:
+        except Exception:
             LOGGER.exception('Not connected')
             self.disconnect()
             return False
@@ -128,13 +147,15 @@ class SSHManager:
 
         LOGGER.debug('Established ssh connection')
         self.transport.set_keepalive(30)
+        self.transport.open_session()
 
-        for domain, (addr, port, _) in self._tunnels.items():
-            self._setup_tunnel(domain, addr, port)
+        for tunnel in self._tunnels.values():
+            self._setup_tunnel(tunnel)
 
     def disconnect(self):
         if not self.connected:
             return
+        LOGGER.info('Disconnecting from: %s:%i', self._host, self._port)
         self._ssh.close()
         self._ssh = None
 
@@ -144,51 +165,51 @@ class SSHManager:
             return
         self.connect()
 
-    def _setup_tunnel(self, domain, addr, port):
-        self.transport.open_session()
-        remote_port = self.transport.request_port_forward(
+    def _setup_tunnel(self, tunnel):
+        tunnel.remote_port = self.transport.request_port_forward(
             '0.0.0.0',
             0,
-            self._forwarder.create_handler(domain, addr, port),
+            self._forwarder.create_handler(
+                tunnel.domain, tunnel.addr, tunnel.port),
         )
         try:
-            self._ssh.exec_command(f'tunnel {domain} {remote_port}')
+            self._ssh.exec_command(f'tunnel {tunnel.domain} {tunnel.remote_port}')
 
         except Exception:
             LOGGER.exception('error adding tunnel')
             raise
 
-        self._tunnels[domain] = (addr, port, remote_port)
+        self._tunnels[tunnel.domain] = tunnel
 
     def add_tunnel(self, domain, addr, port):
         # Check if there is an existing tunnel for this domain.
+        tunnel = Tunnel(domain, addr, port)
         existing = self._tunnels.get(domain)
         if existing:
             LOGGER.debug(
-                'Comparing tunnels: (%s:%i) == (%s:%i)',
-                addr,
-                port,
-                *existing[:2],
+                'Comparing tunnels: (%s) == (%s)',
+                tunnel, existing,
             )
-            if existing[:2] == [addr, port]:
+            if existing == tunnel:
                 LOGGER.debug('Matched, leaving')
                 return
             self.del_tunnel(domain)
         self._check_connection(connect=True)
-        self._setup_tunnel(domain, addr, port)
+        self._setup_tunnel(tunnel)
 
     def del_tunnel(self, domain):
         try:
-            remote_port = self._tunnels.pop(domain)[2]
+            tunnel = self._tunnels.pop(domain)
         except KeyError:
             return
-        self.transport.cancel_port_forward('0.0.0.0', remote_port)
+        self.transport.cancel_port_forward('0.0.0.0', tunnel.remote_port)
 
     def poll(self):
         try:
             self._check_connection()
 
-        except paramiko.SSHException:
+        except Exception:
+            LOGGER.exception('Error polling')
             return
 
 
@@ -210,8 +231,11 @@ def save_host_keys(keys, path=SSH_HOST_KEYS_FILE):
     "Saves host keys where ssh client will look for them."
     if path is None:
         raise FileNotFoundError('SSH_HOST_KEYS_FILE file not defined')
-    with open(path, 'w') as f:
-        f.write('\n'.join(keys))
+    keys = set(keys)
+    with open(path, 'r') as f:
+        existing = set(f.read().split('\n'))
+    with open(path, 'a') as f:
+        f.write('\n'.join(keys.difference(existing)))
 
 
 def create_manager(host=SSH_HOST, port=SSH_PORT, user=SSH_USER, key=None):

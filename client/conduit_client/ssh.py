@@ -2,10 +2,12 @@ import os
 import threading
 import logging
 import socket
+import ipaddress
 from select import select
 from os.path import isfile
 
 import paramiko
+import dns
 
 
 LOGGER = logging.getLogger(__name__)
@@ -19,6 +21,20 @@ SSH_USER = os.getenv('SSH_USER', 'default')
 BUFFER_SIZE = 1024 * 32
 DISABLED_ALGORITHMS = dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"])
 MANAGER = None
+
+
+def resolve_addr(addr):
+    "Do dns lookup if necessary."
+    try:
+        ipaddress.ip_address(addr)
+    except ValueError:
+        pass
+    else:
+        # Already an ip address.
+        return addr
+
+    # NOTE: resolver should randomize A records if there are multiple.
+    return dns.resolver.query(addr, 'A')[0].to_text()
 
 
 class Tunnel:
@@ -77,9 +93,13 @@ class Forwarder:
 
     def create_handler(self, domain, addr, port):
         def _handler(channel, *args):
-            LOGGER.debug('connecting to %s:%i for %s', addr, port, domain)
+            # NOTE: Resolve each time we connect. This is done to perform
+            # rr-dns as well as to cope when an IP changes (container restart).
+            ip = resolve_addr(addr)
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            server.connect((addr, port))
+            LOGGER.debug('connecting to %s:%i for %s', ip, port, domain)
+            server.connect((ip, port))
+            LOGGER.debug('connected, polling')
             self._handles[server] = channel
             self._handles[channel] = server
             self._event.set()

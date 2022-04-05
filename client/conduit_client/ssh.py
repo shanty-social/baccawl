@@ -32,7 +32,7 @@ class Tunnel:
         remote_port = f', remote_port={self.remote_port}' \
             if self.remote_port else ''
         return (f'Tunnel, domain: {self.domain}, addr: {self.addr}:{self.port}'
-               f'{remote_port}')
+                f'{remote_port}')
 
     def __eq__(self, other):
         return self.domain == other.domain and \
@@ -173,7 +173,8 @@ class SSHManager:
                 tunnel.domain, tunnel.addr, tunnel.port),
         )
         try:
-            self._ssh.exec_command(f'tunnel {tunnel.domain} {tunnel.remote_port}')
+            self._ssh.exec_command(
+                f'tunnel {tunnel.domain} {tunnel.remote_port}')
 
         except Exception:
             LOGGER.exception('error adding tunnel')
@@ -204,6 +205,9 @@ class SSHManager:
             return
         self.transport.cancel_port_forward('0.0.0.0', tunnel.remote_port)
         self._check_connection()
+
+    def list_tunnels(self):
+        return self._tunnels.values()
 
     def poll(self):
         try:

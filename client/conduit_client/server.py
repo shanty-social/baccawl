@@ -12,7 +12,6 @@ from select import select
 from os.path import dirname, basename
 
 from conduit_client import ssh
-from conduit_client.ssh import Tunnel
 
 
 PYTHON = shutil.which('python3')
@@ -87,7 +86,7 @@ class DomainCommand(Command):
 
 class ListCommand(Command):
     def apply(self, manager, socket):
-        for tunnel in manager.tunnels.values():
+        for tunnel in manager.list_tunnels():
             TunnelCommand(Command.COMMAND_ADD, tunnel).send(socket)
 
 

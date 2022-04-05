@@ -237,3 +237,5 @@ class SSHTestCase(SSHServerTestCase):
         self.assertExecRequest()
         self.assertPortForward()
         self.assertData(b'Hello world.')
+        tunnels = manager.list_tunnels()
+        self.assertEqual(1, len(tunnels))

@@ -238,7 +238,7 @@ class SSHManagerClient:
                 Command.COMMAND_ADD, tunnel)
         )
 
-    def del_tunnel(self, domain):
+    def del_tunnel(self, tunnel):
         self._send_command(
             TunnelCommand(Command.COMMAND_DEL, tunnel)
         )

@@ -204,7 +204,6 @@ class SSHManager:
         except KeyError:
             return
         self.transport.cancel_port_forward('0.0.0.0', tunnel.remote_port)
-        self._check_connection()
 
     def list_tunnels(self):
         return self._tunnels.values()

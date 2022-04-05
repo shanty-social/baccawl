@@ -88,7 +88,7 @@ class DomainCommand(Command):
 class ListCommand(Command):
     def apply(self, manager, socket):
         for tunnel in manager.tunnels.values():
-            TunnelCommand(COMMAND_ADD, tunnel).send(socket)
+            TunnelCommand(Command.COMMAND_ADD, tunnel).send(socket)
 
 
 class TunnelCommand(Command):

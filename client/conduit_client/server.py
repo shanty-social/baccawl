@@ -107,10 +107,10 @@ class SSHManagerServer:
     def __init__(self, sock_name):
         self._sock_name = sock_name
         self._queue = queue.Queue()
+        self._manager = ssh.create_manager()
         self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self._reader = threading.Thread(target=self._read, daemon=True)
         self._reader.start()
-        self._manager = ssh.create_manager()
 
     def _read(self):
         noop = Command(Command.COMMAND_NOOP)

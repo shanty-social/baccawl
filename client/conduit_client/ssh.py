@@ -123,17 +123,16 @@ class SSHManager:
 
         try:
             if not self.transport.is_alive():
-                LOGGER.debug('Transport not alive')
-                self.disconnect()
-                return False
-
+                raise Exception('Transport not alive')
             self.transport.send_ignore()
-            return True
 
         except Exception:
             LOGGER.exception('Not connected')
-            self.disconnect()
+            self._disconnect()
             return False
+
+        else:
+            return True
 
     @property
     def transport(self):
@@ -172,12 +171,15 @@ class SSHManager:
         for tunnel in self._tunnels.values():
             self._setup_tunnel(tunnel)
 
-    def disconnect(self):
-        if not self.connected:
-            return
+    def _disconnect(self):
         LOGGER.info('Disconnecting from: %s:%i', self._host, self._port)
         self._ssh.close()
         self._ssh = None
+
+    def disconnect(self):
+        if not self.connected:
+            return
+        self._disconnect()
 
     def _check_connection(self, connect=False):
         if not connect and len(self.tunnels) == 0:

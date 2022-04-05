@@ -193,6 +193,7 @@ class SSHManager:
                 LOGGER.debug('Matched, leaving')
                 return
             self.del_tunnel(tunnel)
+        # NOTE: Connection must be up in order to add tunnel.
         self._check_connection(connect=True)
         self._setup_tunnel(tunnel)
 
@@ -202,6 +203,7 @@ class SSHManager:
         except KeyError:
             return
         self.transport.cancel_port_forward('0.0.0.0', tunnel.remote_port)
+        self._check_connection()
 
     def poll(self):
         try:

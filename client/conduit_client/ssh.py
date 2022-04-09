@@ -66,6 +66,8 @@ class Forwarder:
 
     def _close(self, *socks):
         for s in socks:
+            if isinstance(s, socket):
+                LOGGER.debug('Closing %s:%i', *s.getsockname())
             try:
                 s.close()
             except socket.error:
@@ -86,6 +88,8 @@ class Forwarder:
                 except socket.error:
                     self._close(r, s)
                     continue
+                LOGGER.debug('Read %i bytes from %s', len(data), r)
+                LOGGER.debug('Writing %i bytes to %s', len(data), s)
                 if len(data) == 0:
                     self._close(r, s)
                     continue
@@ -97,7 +101,7 @@ class Forwarder:
             # rr-dns as well as to cope when an IP changes (container restart).
             ip = resolve_addr(addr)
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            LOGGER.debug('connecting to %s:%i for %s', ip, port, domain)
+            LOGGER.debug('connecting to %s(%s:%i) for %s', addr, ip, port, domain)
             server.connect((ip, port))
             LOGGER.debug('connected, polling')
             self._handles[server] = channel

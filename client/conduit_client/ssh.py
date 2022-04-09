@@ -66,7 +66,7 @@ class Forwarder:
 
     def _close(self, *socks):
         for s in socks:
-            if isinstance(s, socket):
+            if isinstance(s, socket.socket):
                 LOGGER.debug('Closing %s:%i', *s.getsockname())
             try:
                 s.close()
@@ -74,26 +74,33 @@ class Forwarder:
                 pass
             self._handles.pop(s, None)
 
+    def _poll(self):
+        if not self._handles and self._event.wait(1.0):
+            self._event.clear()
+        for r in select(self._handles, [], [], 0.1)[0]:
+            try:
+                s = self._handles[r]
+            except KeyError:
+                continue
+            try:
+                data = r.recv(BUFFER_SIZE)
+            except socket.error:
+                self._close(r, s)
+                continue
+            LOGGER.debug('Read %i bytes from %s', len(data), r)
+            LOGGER.debug('Writing %i bytes to %s', len(data), s)
+            if len(data) == 0:
+                self._close(r, s)
+                continue
+            s.send(data)
+
     def _run(self):
         while True:
-            if not self._handles and self._event.wait():
-                self._event.clear()
-            for r in select(self._handles, [], [])[0]:
-                try:
-                    s = self._handles[r]
-                except KeyError:
-                    continue
-                try:
-                    data = r.recv(BUFFER_SIZE)
-                except socket.error:
-                    self._close(r, s)
-                    continue
-                LOGGER.debug('Read %i bytes from %s', len(data), r)
-                LOGGER.debug('Writing %i bytes to %s', len(data), s)
-                if len(data) == 0:
-                    self._close(r, s)
-                    continue
-                s.send(data)
+            try:
+                self._poll()
+
+            except Exception:
+                LOGGER.exception('Error polling')
 
     def create_handler(self, domain, addr, port):
         def _handler(channel, *args):
@@ -101,7 +108,8 @@ class Forwarder:
             # rr-dns as well as to cope when an IP changes (container restart).
             ip = resolve_addr(addr)
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            LOGGER.debug('connecting to %s(%s:%i) for %s', addr, ip, port, domain)
+            LOGGER.debug(
+                'connecting to %s(%s:%i) for %s', addr, ip, port, domain)
             server.connect((ip, port))
             LOGGER.debug('connected, polling')
             self._handles[server] = channel

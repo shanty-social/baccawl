@@ -257,9 +257,12 @@ def save_host_keys(keys, path=SSH_HOST_KEYS_FILE):
     "Saves host keys where ssh client will look for them."
     if path is None:
         raise FileNotFoundError('SSH_HOST_KEYS_FILE file not defined')
-    keys = set(keys)
-    with open(path, 'r') as f:
-        existing = set(f.read().split('\n'))
+    keys, existing = set(keys), set()
+    try:
+        with open(path, 'r') as f:
+            existing.update(f.read().split('\n'))
+    except FileNotFoundError:
+        pass
     with open(path, 'a') as f:
         f.write('\n'.join(keys.difference(existing)))
 

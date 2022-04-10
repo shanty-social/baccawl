@@ -39,16 +39,16 @@ jobs:
         run: |
           docker buildx build -f docker/sshd/Dockerfile \
             --push \
-            --tag ${{secrets.DOCKER_USER}}/conduit-sshd:latest \
-            --tag ${{secrets.DOCKER_USER}}/conduit-sshd:${{env.tag}} \
+            --tag ${{secrets.DOCKER_ORG}}/conduit-sshd:latest \
+            --tag ${{secrets.DOCKER_ORG}}/conduit-sshd:${{env.tag}} \
             --platform linux/amd64 .
 
       - name: build and push haproxy
         run: |
           docker buildx build -f docker/haproxy/Dockerfile \
             --push \
-            --tag ${{secrets.DOCKER_USER}}/conduit-haproxy:latest \
-            --tag ${{secrets.DOCKER_USER}}/conduit-haproxy:${{env.tag}} \
+            --tag ${{secrets.DOCKER_ORG}}/conduit-haproxy:latest \
+            --tag ${{secrets.DOCKER_ORG}}/conduit-haproxy:${{env.tag}} \
             --platform linux/amd64 .
 
       - name: Docker Hub Description
@@ -56,11 +56,11 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASSWORD_ }}
-          repository: shantysocial/conduit-sshd
+          repository: ${{ secrets.DOCKER_ORG }}/conduit-sshd
 
       - name: Docker Hub Description
         uses: peter-evans/dockerhub-description@v2
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASSWORD_ }}
-          repository: shantysocial/conduit-haproxy
+          repository: ${{ secrets.DOCKER_ORG }}/conduit-haproxy

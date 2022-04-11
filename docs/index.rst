@@ -7,7 +7,7 @@ Welcome to homeland-social-conduits's documentation!
    :caption: Contents:
 
    README.md
-   sshd.md
+   conduit-sshd.md
    conduit-haproxy.md
 
 

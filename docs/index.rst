@@ -1,5 +1,5 @@
 
-Welcome to homeland-social-conduits's documentation!
+Welcome to Homeland Social's conduit documentation!
 ===================================================
 
 .. toctree::

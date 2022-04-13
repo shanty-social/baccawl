@@ -7,7 +7,7 @@ from select import select
 from os.path import isfile
 
 import paramiko
-import dns
+import dns.resolver
 
 
 LOGGER = logging.getLogger(__name__)
@@ -106,11 +106,19 @@ class Forwarder:
         def _handler(channel, *args):
             # NOTE: Resolve each time we connect. This is done to perform
             # rr-dns as well as to cope when an IP changes (container restart).
-            ip = resolve_addr(addr)
+            try:
+                ip = resolve_addr(addr)
+            except Exception:
+                LOGGER.exception('Could not resolve')
+                return
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             LOGGER.debug(
                 'connecting to %s(%s:%i) for %s', addr, ip, port, domain)
-            server.connect((ip, port))
+            try:
+                server.connect((ip, port))
+            except Exception:
+                LOGGER.exception('Could not connect')
+                return
             LOGGER.debug('connected, polling')
             self._handles[server] = channel
             self._handles[channel] = server

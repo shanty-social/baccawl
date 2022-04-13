@@ -6,7 +6,6 @@ const ps = require('proxied-socket');
 
 function createHandler(domains, emitter) {
   return (client) => {
-    client.on('error', (e) => DEBUG('Error handling user http request: %O', e));
     client.pause();
 
     let host;
@@ -14,6 +13,7 @@ function createHandler(domains, emitter) {
       host = client.proxyHeader.tlv.find((o) => o.type === 'UNIQUE_ID').value;
     } catch (e) {
       DEBUG('Error reading unique id: %O', e);
+      return;
     }
 
     // get host connection info.
@@ -34,6 +34,7 @@ function createHandler(domains, emitter) {
           DEBUG('Error forwarding: %O', e);
           return;
         }
+        let sent = 0;
         // Connect client socket and SSH channel.
         DEBUG('Connecting client<->channel');
 
@@ -41,14 +42,30 @@ function createHandler(domains, emitter) {
           .pipe(channel)
           .pipe(client);
 
+        client.once('data', (buffer) => {
+          DEBUG('Received from client: %s', buffer);
+        })
+
+        channel.on('data', (buffer) => {
+          sent += buffer.length;
+        });
+
+        channel.on('error', (e) => {
+          //client.end();
+        });
+
+        client.on('error', (e) => {
+          //channel.end();
+        });
+
         client.on('end', () => {
-          channel.end();
+          //channel.end();
           DEBUG('TCP forwarding closed by client');
         });
 
         channel.on('end', () => {
-          client.end();
-          DEBUG('TCP forwarding closed by tunnel');
+          //client.end();
+          DEBUG('TCP forwarding closed by tunnel, sent %i bytes', sent);
         });
       }
     );

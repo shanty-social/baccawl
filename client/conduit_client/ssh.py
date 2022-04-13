@@ -5,6 +5,7 @@ import socket
 import ipaddress
 from select import select
 from os.path import isfile
+from collections import defaultdict
 
 import paramiko
 import dns.resolver
@@ -18,7 +19,7 @@ SSH_HOST_KEYS_FILE = os.getenv('SSH_HOST_KEYS_FILES', None)
 SSH_HOST = os.getenv('SSH_HOST', 'ssh.homeland-social.com')
 SSH_PORT = int(os.getenv('SSH_PORT', 2222))
 SSH_USER = os.getenv('SSH_USER', 'default')
-BUFFER_SIZE = 1024 * 32
+BUFFER_SIZE = 1024 * 8
 DISABLED_ALGORITHMS = dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"])
 MANAGER = None
 
@@ -60,14 +61,20 @@ class Forwarder:
     "Uses select to forward data over tunnels."
     def __init__(self):
         self._handles = {}
+        self._recv = defaultdict(int)
+        self._sent = defaultdict(int)
         self._event = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
     def _close(self, *socks):
         for s in socks:
-            if isinstance(s, socket.socket):
-                LOGGER.debug('Closing %s:%i', *s.getsockname())
+            LOGGER.debug(
+                'Closing %s, recv=%i, sent=%i',
+                s,
+                self._recv.pop(s, 0),
+                self._sent.pop(s, 0)
+            )
             try:
                 s.close()
             except socket.error:
@@ -87,12 +94,12 @@ class Forwarder:
             except socket.error:
                 self._close(r, s)
                 continue
-            LOGGER.debug('Read %i bytes from %s', len(data), r)
-            LOGGER.debug('Writing %i bytes to %s', len(data), s)
             if len(data) == 0:
                 self._close(r, s)
                 continue
+            self._recv[r] += len(data)
             s.send(data)
+            self._sent[s] += len(data)
 
     def _run(self):
         while True:
@@ -106,12 +113,12 @@ class Forwarder:
         def _handler(channel, *args):
             # NOTE: Resolve each time we connect. This is done to perform
             # rr-dns as well as to cope when an IP changes (container restart).
+            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 ip = resolve_addr(addr)
             except Exception:
                 LOGGER.exception('Could not resolve')
                 return
-            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             LOGGER.debug(
                 'connecting to %s(%s:%i) for %s', addr, ip, port, domain)
             try:
@@ -119,9 +126,9 @@ class Forwarder:
             except Exception:
                 LOGGER.exception('Could not connect')
                 return
-            LOGGER.debug('connected, polling')
             self._handles[server] = channel
             self._handles[channel] = server
+            LOGGER.debug('connected, polling')
             self._event.set()
         return _handler
 

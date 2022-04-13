@@ -44,28 +44,18 @@ function createHandler(domains, emitter) {
 
         client.once('data', (buffer) => {
           DEBUG('Received from client: %s', buffer);
-        })
+        });
 
         channel.on('data', (buffer) => {
           sent += buffer.length;
         });
 
-        channel.on('error', (e) => {
-          //client.end();
-        });
-
-        client.on('error', (e) => {
-          //channel.end();
-        });
-
         client.on('end', () => {
-          //channel.end();
-          DEBUG('TCP forwarding closed by client');
+          DEBUG('client closed');
         });
 
         channel.on('end', () => {
-          //client.end();
-          DEBUG('TCP forwarding closed by tunnel, sent %i bytes', sent);
+          DEBUG('tunnel closed, sent %i bytes', sent);
         });
       }
     );

@@ -61,8 +61,8 @@ class Forwarder:
     "Uses select to forward data over tunnels."
     def __init__(self):
         self._handles = {}
-        self._recv = defaultdict(int)
-        self._sent = defaultdict(int)
+        self._bytes_recv = defaultdict(int)
+        self._bytes_sent = defaultdict(int)
         self._event = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -72,14 +72,36 @@ class Forwarder:
             LOGGER.debug(
                 'Closing %s, recv=%i, sent=%i',
                 s,
-                self._recv.pop(s, 0),
-                self._sent.pop(s, 0)
+                self._bytes_recv.pop(s, 0),
+                self._bytes_sent.pop(s, 0)
             )
             try:
                 s.close()
             except socket.error:
                 pass
             self._handles.pop(s, None)
+
+    def _recv(self, r, s):
+        try:
+            data = r.recv(BUFFER_SIZE)
+        except socket.error:
+            LOGGER.exception('Error receiving')
+            self._close(r, s)
+            return
+        if len(data) == 0:
+            self._close(r, s)
+            return
+        self._bytes_recv[r] += len(data)
+        self._send(r, s, data)
+
+    def _send(self, r, s, data):
+        try:
+            s.send(data)
+        except Exception:
+            LOGGER.exception('Error sending')
+            self._close(r, s)
+            return
+        self._bytes_sent[s] += len(data)
 
     def _poll(self):
         if not self._handles and self._event.wait(1.0):
@@ -89,17 +111,7 @@ class Forwarder:
                 s = self._handles[r]
             except KeyError:
                 continue
-            try:
-                data = r.recv(BUFFER_SIZE)
-            except socket.error:
-                self._close(r, s)
-                continue
-            if len(data) == 0:
-                self._close(r, s)
-                continue
-            self._recv[r] += len(data)
-            s.send(data)
-            self._sent[s] += len(data)
+            self._recv(r, s)
 
     def _run(self):
         while True:

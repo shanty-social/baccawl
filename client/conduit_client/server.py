@@ -122,7 +122,7 @@ class SSHManagerServer:
 
                 except EOFError:
                     LOGGER.error('EOF encountered, exiting')
-                    os._exit(1)
+                    return
 
                 except Exception:
                     LOGGER.exception('Error reading command.')
@@ -137,7 +137,7 @@ class SSHManagerServer:
 
                 elif cmd.command == Command.COMMAND_STOP:
                     LOGGER.info('Exiting')
-                    os._exit(0)
+                    return
 
                 noop.send(self._socket)
                 self._queue.put(cmd)
@@ -207,7 +207,7 @@ class SSHManagerClient:
             pass
         self.close()
         os.remove(self._sock_name)
-        self._server.wait(timeout)
+        self._server.kill()
         self._server = None
 
     def _send_command(self, cmd):

@@ -7,6 +7,9 @@ name = "pypi"
 paramiko = "*"
 python-ddns = "*"
 dnspython = "*"
+asyncssh = "*"
+aiohttp = "*"
+requests = "*"
 
 [dev-packages]
 jurigged = "*"

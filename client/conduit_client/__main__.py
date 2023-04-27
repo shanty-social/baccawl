@@ -1,18 +1,29 @@
-import sys
 import logging
+import argparse
 
-from conduit_client.server import SSHManagerServer
+from conduit_client import TunnelServer
 
 
 LOGGER = logging.getLogger()
+LOGGER.addHandler(logging.StreamHandler())
 
 
-def main(sock_name):
-    server = SSHManagerServer(sock_name)
+def main(args):
+    server = TunnelServer(args)
     server.run_forever()
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        prog='client',
+        description='SSH tunnel client.',
+    )
+
+    parser.add_argument('--log-level', type=str, default='DEBUG')
+
+    args = parser.parse_args()
+
     LOGGER.addHandler(logging.StreamHandler())
-    LOGGER.setLevel(logging.DEBUG)
-    main(sys.argv[1])
+    LOGGER.setLevel(logging.getLevelName(args.log_level.upper()))
+
+    main(args)

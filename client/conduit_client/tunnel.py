@@ -1,4 +1,4 @@
-import asyncio
+import threading
 import logging
 
 
@@ -7,11 +7,10 @@ LOGGER.addHandler(logging.StreamHandler())
 
 
 class Tunnel:
-    def __init__(self, domain, host, port, remote_port=0):
+    def __init__(self, domain, host, port):
         self.domain = domain
         self.host = host
         self.port = port
-        self.remote_port = remote_port
 
     @staticmethod
     def from_dict(dict):
@@ -19,44 +18,68 @@ class Tunnel:
             dict['domain'],
             dict['host'],
             dict['port'],
-            remote_port=dict.get('remote_port', 0)
         )
 
     def __str__(self):
-        source = self.domain if self.remote_port == 0 \
-                             else f'{self.domain}:{self.remote_port}'
         dest = f'{self.host}:{self.port}'
-        return f'{source}->{dest}'
+        return f'{self.domain}->{dest}'
+
+    def __eq__(self, other):
+        return self.domain == other.domain and \
+               self.host == other.host and \
+               self.port == other.port
 
     def to_dict(self):
         return {
             'domain': self.domain,
             'host': self.host,
             'port': self.port,
-            'remote_port': self.remote_port,
         }
 
 
 class Tunnels(dict):
     def __init__(self, *args, **kwargs):
-        self.changed = asyncio.Event()
+        self.changed = threading.Event()
+        self.lock = threading.RLock()
         super().__init__(*args, **kwargs)
 
     def __setitem__(self, key, value):
-        self.changed.set()
-        super().__setitem__(key, value)
+        current = self.get(key)
+        with self.lock:
+            super().__setitem__(key, value)
+        if current is None or current != value: self.changed.set()
 
     def __delitem__(self, key):
-        self.changed.set()
-        super().__delitem__(key)
+        has_key = key in self
+        with self.lock:
+            super().__delitem__(key)
+        if has_key: self.changed.set()
 
-    def pop(self, *args, **kwargs):
-        self.changed.set()
-        super().pop(*args, **kwargs)
+    def __eq__(self, other):
+        self_keys = set(self.keys())
+        other_keys = set(self.values())
+        self_values = set(self.values())
+        other_values = set(other.values())
+        return self_keys == other_keys and \
+               self_values == other_values
+
+    def pop(self, key, *args, **kwargs):
+        has_key = key in self
+        with self.lock:
+            super().pop(key, *args, **kwargs)
+        if has_key: self.changed.set()
 
     def clear(self, *args, **kwargs):
-        self.changed.set()
-        super().clear(*args, **kwargs)
+        has_keys = bool(self)
+        with self.lock:
+            super().clear(*args, **kwargs)
+        if has_keys: self.changed.set()
+
+    def set(self, values):
+        with self.lock:
+            self.clear()
+            self.update(values)
+        if values: self.changed.set()
 
     def to_dict(self):
         return {

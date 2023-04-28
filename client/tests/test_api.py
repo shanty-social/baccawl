@@ -27,6 +27,8 @@ class APITestCase(unittest.TestCase):
             f'http://localhost:{self.server.port}/tunnels/',
             timeout=1.0
         )
+        self.assertEqual(r.status_code, HTTPStatus.OK)
+        self.assertFalse(self.server.tunnels.changed.is_set())
         self.assertDictEqual(r.json(), self.server.tunnels.to_dict())
 
     def test_get_one(self):
@@ -34,6 +36,8 @@ class APITestCase(unittest.TestCase):
             f'http://localhost:{self.server.port}/tunnels/foo.com',
             timeout=1.0
         )
+        self.assertEqual(r.status_code, HTTPStatus.OK)
+        self.assertFalse(self.server.tunnels.changed.is_set())
         self.assertDictEqual(r.json(), self.server.tunnels['foo.com'].to_dict())
 
     def test_get_missing(self):
@@ -42,28 +46,28 @@ class APITestCase(unittest.TestCase):
             timeout=1.0
         )
         self.assertEqual(r.status_code, HTTPStatus.NOT_FOUND)
+        self.assertFalse(self.server.tunnels.changed.is_set())
 
-    def test_set(self):
+    def test_set_same(self):
         r = requests.post(
             f'http://localhost:{self.server.port}/tunnels/',
             json={ 'foo.com': { 'host': 'localhost', 'port': 1337 }},
             timeout=1.0
         )
-        self.assertEqual(r.status_code, HTTPStatus.CREATED)
+        self.assertEqual(r.status_code, HTTPStatus.OK)
         self.assertDictEqual(r.json(), {
             'foo.com': {
                 'domain': 'foo.com',
                 'host': 'localhost',
                 'port': 1337,
-                'remote_port': 0,
             },
         })
-        self.assertTrue(self.server.tunnels.changed.is_set())
+        self.assertFalse(self.server.tunnels.changed.is_set())
 
-    def test_set_one(self):
+    def test_set_diff(self):
         r = requests.post(
-            f'http://localhost:{self.server.port}/tunnels/foo.com',
-            json={ 'host': 'localhost', 'port': 1337 },
+            f'http://localhost:{self.server.port}/tunnels/',
+            json={ 'foo.com': { 'host': 'localhost', 'port': 1024 }},
             timeout=1.0
         )
         self.assertEqual(r.status_code, HTTPStatus.CREATED)
@@ -71,8 +75,39 @@ class APITestCase(unittest.TestCase):
             'foo.com': {
                 'domain': 'foo.com',
                 'host': 'localhost',
+                'port': 1024,
+            },
+        })
+        self.assertTrue(self.server.tunnels.changed.is_set())
+
+    def test_set_one_same(self):
+        r = requests.post(
+            f'http://localhost:{self.server.port}/tunnels/foo.com',
+            json={ 'host': 'localhost', 'port': 1337 },
+            timeout=1.0
+        )
+        self.assertEqual(r.status_code, HTTPStatus.OK)
+        self.assertDictEqual(r.json(), {
+            'foo.com': {
+                'domain': 'foo.com',
+                'host': 'localhost',
                 'port': 1337,
-                'remote_port': 0,
+            },
+        })
+        self.assertFalse(self.server.tunnels.changed.is_set())
+
+    def test_set_one_diff(self):
+        r = requests.post(
+            f'http://localhost:{self.server.port}/tunnels/foo.com',
+            json={ 'host': 'localhost', 'port': 1024 },
+            timeout=1.0
+        )
+        self.assertEqual(r.status_code, HTTPStatus.CREATED)
+        self.assertDictEqual(r.json(), {
+            'foo.com': {
+                'domain': 'foo.com',
+                'host': 'localhost',
+                'port': 1024,
             },
         })
         self.assertTrue(self.server.tunnels.changed.is_set())
@@ -101,3 +136,4 @@ class APITestCase(unittest.TestCase):
             timeout=1.0
         )
         self.assertEqual(r.status_code, HTTPStatus.NOT_FOUND)
+        self.assertFalse(self.server.tunnels.changed.is_set())

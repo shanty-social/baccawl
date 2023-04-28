@@ -11,8 +11,6 @@ class TunnelTestCase(unittest.TestCase):
     def test_str(self):
         tunnel = Tunnel('foo.com', 'localhost', 1337)
         self.assertEqual(str(tunnel), 'foo.com->localhost:1337')
-        tunnel.remote_port = 1337
-        self.assertEqual(str(tunnel), 'foo.com:1337->localhost:1337')
 
     def test_from_dict(self):
         tunnel = Tunnel.from_dict({
@@ -21,13 +19,6 @@ class TunnelTestCase(unittest.TestCase):
             'port': 1337,
         })
         self.assertEqual(str(tunnel), 'foo.com->localhost:1337')
-        tunnel = Tunnel.from_dict({
-            'domain': 'foo.com',
-            'host': 'localhost',
-            'port': 1337,
-            'remote_port': 1337,
-        })
-        self.assertEqual(str(tunnel), 'foo.com:1337->localhost:1337')
 
     def test_to_dict(self):
         tunnel = Tunnel('foo.com', 'localhost', 1337)
@@ -35,7 +26,6 @@ class TunnelTestCase(unittest.TestCase):
             'domain': 'foo.com',
             'host': 'localhost',
             'port': 1337,
-            'remote_port': 0,
         })
 
 
@@ -45,7 +35,7 @@ class TunnelsAddTestCase(unittest.TestCase):
 
     def test_add(self):
         self.assertFalse(self.tunnels.changed.is_set())
-        self.tunnels['foo.com'] = Tunnel('foo.com', 'localhost', 1337)
+        self.tunnels['foo.com'] = Tunnel('foo.com', 'localhost', 1024)
         self.assertTrue(self.tunnels.changed.is_set())
 
 
@@ -71,6 +61,5 @@ class TunnelsRemoveTestCase(unittest.TestCase):
                 'domain': 'foo.com',
                 'host': 'localhost',
                 'port': 1337,
-                'remote_port': 0,
             }
         })

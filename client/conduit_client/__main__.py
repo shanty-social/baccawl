@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import argparse
 
@@ -5,11 +6,11 @@ from conduit_client import TunnelServer
 
 
 LOGGER = logging.getLogger()
-LOGGER.addHandler(logging.StreamHandler())
+LOGGER.addHandler(logging.NullHandler())
 
 
 def main(args):
-    server = TunnelServer(args)
+    server = TunnelServer()
     server.run_forever()
 
 

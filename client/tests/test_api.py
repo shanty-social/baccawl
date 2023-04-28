@@ -11,7 +11,7 @@ from conduit_client.tunnel import Tunnels, Tunnel
 class APITestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.server = REST()
+        cls.server = REST(loop=asyncio.new_event_loop())
         cls.server.start()
 
     @classmethod

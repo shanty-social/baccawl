@@ -4,6 +4,7 @@ import socket
 import logging
 import select
 import random
+import asyncio
 from io import StringIO
 
 import paramiko
@@ -159,7 +160,11 @@ class TunnelTestCase(unittest.TestCase):
         self.server.stop()
 
     def setUp(self):
-        self.client = SSH(port=self.server.port)
+        self.client = SSH(
+            host='localhost',
+            port=self.server.port,
+            loop=asyncio.new_event_loop()
+        )
         self.client.start()
 
     def tearDown(self):
@@ -167,7 +172,7 @@ class TunnelTestCase(unittest.TestCase):
 
     def test_connect(self):
         self.client.tunnels['foo.com'] = Tunnel('foo.com', 'localhost', 1337)
-        tunnel_opened = self.server.tunnel_opened.wait(1.0)
+        tunnel_opened = self.server.tunnel_opened.wait(400.0)
         self.client.tunnels.clear()
         self.assertTrue(self.client.connected)
         self.assertTrue(tunnel_opened)

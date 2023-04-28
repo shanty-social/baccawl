@@ -10,7 +10,7 @@ from conduit_client.tunnel import Tunnels, Tunnel
 
 
 LOGGER = logging.getLogger(__name__)
-LOGGER.addHandler(logging.StreamHandler())
+LOGGER.addHandler(logging.NullHandler())
 
 
 class REST:
@@ -18,7 +18,7 @@ class REST:
         self.tunnels = Tunnels() if tunnels is None else tunnels
         self._host = host
         self._port = port
-        self._loop = loop or asyncio.new_event_loop()
+        self._loop = loop or asyncio.get_event_loop()
         self._running = threading.Event()
         self._stopping = threading.Event()
         self._app = web.Application()
@@ -87,6 +87,7 @@ class REST:
         self._site = web.TCPSite(self._runner, self._host, self._port)
         await self._site.start()
         self._running.set()
+        LOGGER.info('Started REST server on %i', self.port)
         await self._loop.run_in_executor(None, self._stopping.wait)
         LOGGER.info('Stopping server on %i', self.port)
         await self._runner.cleanup()

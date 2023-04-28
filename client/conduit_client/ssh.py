@@ -1,3 +1,4 @@
+import os
 import logging
 import asyncio
 import threading
@@ -8,7 +9,13 @@ from conduit_client.tunnel import Tunnels, Tunnel
 
 
 LOGGER = logging.getLogger(__name__)
-LOGGER.addHandler(logging.StreamHandler())
+LOGGER.addHandler(logging.NullHandler())
+
+SSH_KEY_FILE = os.getenv('SSH_KEY_FILE', None)
+SSH_HOST_KEYS_FILES = os.getenv('SSH_HOST_KEYS_FILES', None)
+SSH_HOST = os.getenv('SSH_HOST', 'ssh.homeland-social.com')
+SSH_PORT = int(os.getenv('SSH_PORT', 2222))
+SSH_USER = os.getenv('SSH_USER', 'default')
 
 
 class Channel:
@@ -18,14 +25,17 @@ class Channel:
 
 
 class SSH:
-    def __init__(self, host='localhost', port=22, tunnels=None, host_key=None,
-                 loop=None):
+    def __init__(self, host=SSH_HOST, port=SSH_PORT, user=SSH_USER,
+                 key=SSH_KEY_FILE, tunnels=None,
+                 host_keys_path=SSH_HOST_KEYS_FILES, loop=None):
         self._host = host
         self._port = port
+        self._user = user
+        self._key = key
         self.tunnels = tunnels or Tunnels()
-        self._host_key = host_key
+        self._host_keys = host_keys_path
         self.channels = {}
-        self._loop = loop or asyncio.new_event_loop()
+        self._loop = loop or asyncio.get_event_loop()
         self._connection = None
         self._stopping = threading.Event()
 
@@ -38,20 +48,31 @@ class SSH:
             LOGGER.debug('Already connected')
             return
 
-        LOGGER.debug('Connecting ssh')
+        LOGGER.info('Connecting ssh %s@%s:%i', self._user, self._host, self._port)
         # TODO: host key should be provided by API.
-        if self._host_key is not None:
-            known_hosts = asyncio.import_known_hosts(f'{self._host} {self._host_key}')
+        if self._host_keys is not None:
+            LOGGER.debug('Loading host keys from %s', self._host_keys)
+            known_hosts = asyncio.import_known_hosts(self._host_keys)
         else:
             known_hosts = None
         # TODO: key should be provided by API.
-        client_keys = [asyncssh.generate_private_key('ecdsa-sha2-nistp256')]
+        if self._key:
+            LOGGER.debug('Loading client key from %s', self._key)
+            client_keys = [asyncssh.read_private_key(self._key)]
+        else:
+            LOGGER.debug('Generating private key')
+            client_keys = [asyncssh.generate_private_key('ecdsa-sha2-nistp256')]
+        LOGGER.debug('Connecting')
         options = asyncssh.SSHClientConnectionOptions(
+            username=self._user,
             known_hosts=known_hosts,
             client_keys=client_keys,
+            connect_timeout=1.0,
+            login_timeout=1.0,
+            keepalive_interval=10.0,
         )
         self._connection = await asyncssh.connect(
-            self._host, self._port, options=options)
+            self._host, self._port, config=None, options=options)
 
     async def _disconnect(self):
         if not self.connected:
